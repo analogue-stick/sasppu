@@ -4,12 +4,12 @@ _"Super Analogue Stick Picture Processing Unit"_ (SASPPU) is a custom graphics e
 
 ## A feature list:
 * Full 240x240 resolution with RGB555 (15bit) colour.
-* Two 512x512 pixel backgrounds, made up from up to 1024 8x8 tiles.
-* Ability to flip background tiles in the x and y axis.
+* Two 512x512 pixel backgrounds, made up from up to 2048 8x8 tiles.
+* Ability to flip background tiles in the x and y axis, or both.
 * Infinite per pixel background scrolling.
 * Up to 256 sprites, of any size (as long as they are a multiple of 8 wide), of which you can get 16 on any one scanline.
-* A dedicated 256x256 pixel area for sprite graphics.
-* Ability to flip each sprite individually in the x and y axis.
+* A dedicated 256x256 pixel area for sprite graphics, separate from the background graphics.
+* Ability to flip each sprite individually in the x and y axis, or both.
 * Ability to double the size of each sprite individually (in both axes at once), with nearest-neighbour upscale.
 * Position sprites anywhere on screen, including offscreen, and either in front or behind the higher background.
 * Well defined sprite layering in relation to each other.
@@ -26,7 +26,7 @@ _"Super Analogue Stick Picture Processing Unit"_ (SASPPU) is a custom graphics e
 * Significantly faster than uctx: easily hits 30fps, and on simple scenes can reach 60fps (!), even with the entire rest of the OS running.
 * Uses inline esp32s3 SIMD assembly to render 8 pixels at once.
 * Co-exists with uctx. SASPPU and uctx are chosen on a per frame basis, and switching in and out of a SASPPU app is seamless.
-* Comes with some helper functions for copying data around the graphics memory, including some simple graphics decompression, and routines to draw text to the backgrounds.
+* Comes with some helper functions for copying data around the graphics memory, including simple graphics decompression, and routines to draw text to the backgrounds.
 * Deterministic. HDMA notwithstanding, if you call "SASPPU_render" twice you should get the same frame twice.
 * Renders directly into the Tildagon framebuffer, with no double buffering - but also no tearing :)
 
