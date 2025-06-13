@@ -131,7 +131,7 @@ static void IDENT(uint16x8_t *const scanline, int16_t y)
     static const uint16x8_t zero = VBROADCAST(0);
 #endif
     uint16x8_t vsubcol = VBROADCAST(SASPPU_main_state.subscreen_colour);
-    uint16x8_t vmaincol = VBROADCAST(SASPPU_main_state.subscreen_colour);
+    uint16x8_t vmaincol = VBROADCAST(SASPPU_main_state.mainscreen_colour);
 #endif
 
     uint16x8_t *maincol = &scanline[(240 / 8) - 1];

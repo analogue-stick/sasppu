@@ -128,38 +128,45 @@ extern uint16x8_t SASPPU_sprites[SPR_WIDTH * SPR_HEIGHT / 8];
 extern Sprite *SASPPU_sprite_cache[2][SPRITE_CACHE];
 
 #if __STDC_VERSION__ >= 202000
-typedef enum : uint8_t
+typedef enum : uint16_t
 #else
 typedef enum
 #endif
 {
     HDMA_NOOP = 0,
-    HDMA_WRITE_MAIN_STATE,
-    HDMA_WRITE_BG0_STATE,
-    HDMA_WRITE_BG1_STATE,
-    HDMA_WRITE_CMATH_STATE,
-    HDMA_WRITE_OAM,
     HDMA_DISABLE,
+    HDMA_MAIN_STATE_MAINSCREEN_COLOUR,
+    HDMA_MAIN_STATE_SUBSCREEN_COLOUR,
+    HDMA_MAIN_STATE_WINDOW1_LEFT,
+    HDMA_MAIN_STATE_WINDOW1_RIGHT,
+    HDMA_MAIN_STATE_WINDOW2_LEFT,
+    HDMA_MAIN_STATE_WINDOW2_RIGHT,
+    HDMA_MAIN_STATE_BGCOL_WINDOWS,
+    HDMA_MAIN_STATE_FLAGS,
+    HDMA_CMATH_STATE_SCREEN_FADE,
+    HDMA_CMATH_STATE_FLAGS,
+    HDMA_BACKGROUND0_X,
+    HDMA_BACKGROUND0_Y,
+    HDMA_BACKGROUND0_WINDOWS,
+    HDMA_BACKGROUND0_FLAGS,
+    HDMA_BACKGROUND1_X,
+    HDMA_BACKGROUND1_Y,
+    HDMA_BACKGROUND1_WINDOWS,
+    HDMA_BACKGROUND1_FLAGS,
+    HDMA_HDMA_ENABLE,
+    HDMA_LAST,
 } HDMACommand;
-
-typedef union
-{
-    MainState main;
-    Background background;
-    CMathState cmath;
-    Sprite oam;
-} HDMAData;
 
 typedef struct
 {
     HDMACommand command;
-    uint8_t oam_index;
-    HDMAData data;
+    uint16_t value;
 } HDMAEntry;
 
 #define SASPPU_HDMA_TABLE_COUNT (8)
+#define HDMA_LEN (240)
 
-extern HDMAEntry SASPPU_hdma_tables[SASPPU_HDMA_TABLE_COUNT][240];
+extern HDMAEntry SASPPU_hdma_tables[SASPPU_HDMA_TABLE_COUNT][HDMA_LEN];
 
 void SASPPU_render(uint16x8_t *fb, uint8_t section);
 

@@ -56,7 +56,7 @@
         _in_g &= mask;                                                              \
         _in_b &= mask;                                                              \
         uint16x8_t col_out_unflipped = (_in_r << 1) | (_in_g >> 4) | (_in_b >> 10); \
-        col_out = (col_out_unflipped << 8) & (col_out_unflipped >> 8);              \
+        col_out = (col_out_unflipped << 8) | (col_out_unflipped >> 8);              \
     }
 
 #define CMATH_HELPER_ADD_SINGLE(out, sub)                   \
@@ -199,6 +199,8 @@ static void IDENT(uint16x8_t *const scanline)
 #if CMATH_ENABLE
         static const uint16x8_t cmath_bit = VBROADCAST(0x8000);
         mask16x8_t use_cmath = *maincol >= cmath_bit;
+        static const uint16x8_t zero_bit = VBROADCAST(0x0000);
+        use_cmath &= *subcol != zero_bit;
         CMATH_HELPER_SPLIT_COL(sub_r, sub_g, sub_b, *(subcol--));
 
         int16x8_t main_r_bak = main_r;

@@ -83,40 +83,109 @@ static inline void SASPPU_handle_hdma(uint8_t y)
 
         HDMAEntry *entry = &SASPPU_hdma_tables[table][y];
 
-        if (entry->command == HDMA_DISABLE)
-        {
-            SASPPU_hdma_enable &= ~(1 << table);
-            break;
-        }
-
         switch (entry->command)
         {
         case HDMA_NOOP:
         default:
             break;
-        case HDMA_WRITE_MAIN_STATE:
+        case HDMA_DISABLE:
         {
-            SASPPU_main_state = entry->data.main;
+            SASPPU_hdma_enable &= ~(1 << table);
         }
         break;
-        case HDMA_WRITE_BG0_STATE:
+        case HDMA_MAIN_STATE_MAINSCREEN_COLOUR:
         {
-            SASPPU_bg0_state = entry->data.background;
+            SASPPU_main_state.mainscreen_colour = (uint16_t)(entry->value);
         }
         break;
-        case HDMA_WRITE_BG1_STATE:
+        case HDMA_MAIN_STATE_SUBSCREEN_COLOUR:
         {
-            SASPPU_bg1_state = entry->data.background;
+            SASPPU_main_state.subscreen_colour = (uint16_t)(entry->value);
         }
         break;
-        case HDMA_WRITE_CMATH_STATE:
+        case HDMA_MAIN_STATE_WINDOW1_LEFT:
         {
-            SASPPU_cmath_state = entry->data.cmath;
+            SASPPU_main_state.window_1_left = (int16_t)(entry->value);
         }
         break;
-        case HDMA_WRITE_OAM:
+        case HDMA_MAIN_STATE_WINDOW1_RIGHT:
         {
-            SASPPU_oam[entry->oam_index] = entry->data.oam;
+            SASPPU_main_state.window_1_right = (int16_t)(entry->value);
+        }
+        break;
+        case HDMA_MAIN_STATE_WINDOW2_LEFT:
+        {
+            SASPPU_main_state.window_2_left = (int16_t)(entry->value);
+        }
+        break;
+        case HDMA_MAIN_STATE_WINDOW2_RIGHT:
+        {
+            SASPPU_main_state.window_2_right = (int16_t)(entry->value);
+        }
+        break;
+        case HDMA_MAIN_STATE_BGCOL_WINDOWS:
+        {
+            SASPPU_main_state.bgcol_windows  = (uint8_t)(entry->value);
+        }
+        break;
+        case HDMA_MAIN_STATE_FLAGS:
+        {
+            SASPPU_main_state.flags = (uint8_t)(entry->value);
+        }
+        break;
+        case HDMA_CMATH_STATE_SCREEN_FADE:
+        {
+            SASPPU_cmath_state.screen_fade  = (uint16_t)(entry->value);
+        }
+        break;
+        case HDMA_CMATH_STATE_FLAGS:
+        {
+            SASPPU_cmath_state.flags  = (uint8_t)(entry->value);
+        }
+        break;
+        case HDMA_BACKGROUND0_X:
+        {
+            SASPPU_bg0_state.x = (int16_t)(entry->value);
+        }
+        break;
+        case HDMA_BACKGROUND0_Y:
+        {
+            SASPPU_bg0_state.y = (int16_t)(entry->value);
+        }
+        break;
+        case HDMA_BACKGROUND0_WINDOWS:
+        {
+            SASPPU_bg0_state.windows = (uint8_t)(entry->value);
+        }
+        break;
+        case HDMA_BACKGROUND0_FLAGS:
+        {
+            SASPPU_bg0_state.flags = (uint8_t)(entry->value);
+        }
+        break;
+        case HDMA_BACKGROUND1_X:
+        {
+            SASPPU_bg1_state.x = (int16_t)(entry->value);
+        }
+        break;
+        case HDMA_BACKGROUND1_Y:
+        {
+            SASPPU_bg1_state.y = (int16_t)(entry->value);
+        }
+        break;
+        case HDMA_BACKGROUND1_WINDOWS:
+        {
+            SASPPU_bg1_state.windows = (uint8_t)(entry->value);
+        }
+        break;
+        case HDMA_BACKGROUND1_FLAGS:
+        {
+            SASPPU_bg1_state.flags = (uint8_t)(entry->value);
+        }
+        break;
+        case HDMA_HDMA_ENABLE:
+        {
+            SASPPU_hdma_enable = (uint8_t)(entry->value);
         }
         break;
         }
