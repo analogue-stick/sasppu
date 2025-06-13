@@ -227,12 +227,12 @@ static inline SASPPUImageCode SASPPU_draw_text_next(size_t *x, size_t *y, uint16
 
     CharacterData data = CHARACTER_DATA[next_char - 0x20];
     const uint8_t *glyph_start = SASPPU_font + data.offset;
-    res = SASPPU_paletted((*x) + 1, (*y) + 1, data.width, data.height, double_size, glyph_start, buffer, bg_palette, 0, buffer_width, buffer_height, true);
+    res = SASPPU_paletted((*x) + 1, (*y) + 1, data.width, data.height-2, double_size, glyph_start, buffer, bg_palette, 0, buffer_width, buffer_height, true);
     if (res != SASPPU_IC_Success)
     {
         return res;
     }
-    res = SASPPU_paletted(*x, *y, data.width, data.height, double_size, glyph_start, buffer, fg_palette, 0, buffer_width, buffer_height, true);
+    res = SASPPU_paletted(*x, *y, data.width, data.height-2, double_size, glyph_start, buffer, fg_palette, 0, buffer_width, buffer_height, true);
     if (res != SASPPU_IC_Success)
     {
         return res;
