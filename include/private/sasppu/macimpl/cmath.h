@@ -56,7 +56,7 @@
         _in_g &= mask;                                                              \
         _in_b &= mask;                                                              \
         uint16x8_t col_out_unflipped = (_in_r << 1) | (_in_g >> 4) | (_in_b >> 10); \
-        col_out = (col_out_unflipped << 8) & (col_out_unflipped >> 8);              \
+        col_out = (col_out_unflipped << 8) | (col_out_unflipped >> 8);              \
     }
 
 #define CMATH_HELPER_ADD_SINGLE(out, sub)                   \
