@@ -185,12 +185,26 @@ pub type BackgroundMap = [[u16; MAP_WIDTH]; MAP_HEIGHT];
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HDMACommand {
     Noop,
-    WriteMainState(MainState),
-    WriteBG0State(Background),
-    WriteBG1State(Background),
-    WriteCMathState(CMathState),
-    WriteOAM((u8, Sprite)),
     Disable,
+    MainStateMainscreenColour,
+    MainStateSubscreenColour,
+    MainStateWindow1Left,
+    MainStateWindow1Right,
+    MainStateWindow2Left,
+    MainStateWindow2Right,
+    MainStateBgcolWindows,
+    MainStateFlags,
+    CMathStateScreenFade,
+    CMathStateFlags,
+    Background0X,
+    Background0Y,
+    Background0Windows,
+    Background0Flags,
+    Background1X,
+    Background1Y,
+    Background1Windows,
+    Background1Flags,
+    HDMAEnable,
 }
 
 impl HDMACommand {
@@ -208,12 +222,14 @@ impl Default for HDMACommand {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HDMAEntry {
     pub command: HDMACommand,
+    pub value:   u16,
 }
 
 impl HDMAEntry {
     pub const fn new() -> Self {
         HDMAEntry {
             command: HDMACommand::new(),
+            value:   0,
         }
     }
 }
@@ -625,13 +641,14 @@ fn handle_cmath<
     sub_col: &mut [u16x8; 240 / 8],  // q1
 ) {
     if FADE_ENABLE || CMATH_ENABLE {
+        let mask = u16x8::splat(0b0111110000000000);
         for x in (0..(240 / 8)).rev() {
-            let use_cmath = main_col[x].simd_ge(u16x8::splat(0x8000));
-            let mask = u16x8::splat(0b0111110000000000);
             let this_main_col = main_col[x];
+            let use_cmath = this_main_col.simd_ge(u16x8::splat(0x8000));
             let (mut main_r, mut main_g, mut main_b) = split_main!(this_main_col, mask);
             if CMATH_ENABLE {
                 let this_sub_col = sub_col[x];
+                let use_cmath = use_cmath & this_sub_col.simd_ne(u16x8::splat(0x0000));
                 let (mut sub_r, mut sub_g, mut sub_b) = split_main!(this_sub_col, mask);
 
                 let main_r_bak = main_r;
@@ -900,28 +917,68 @@ impl SASPPU {
 
             let entry = self.hdma_tables[table as usize][y as usize];
 
-            if entry.command == HDMACommand::Disable {
-                self.hdma_enable &= !(1 << table);
-                break;
-            }
-
             match entry.command {
-                HDMACommand::WriteMainState(state) => {
-                    self.main_state = state;
+                HDMACommand::Disable => {
+                    self.hdma_enable &= !(1 << table);
                 },
-                HDMACommand::WriteBG0State(state) => {
-                    self.bg0_state = state;
+                HDMACommand::MainStateMainscreenColour => {
+                    self.main_state.mainscreen_colour = entry.value as u16;
                 },
-                HDMACommand::WriteBG1State(state) => {
-                    self.bg1_state = state;
+                HDMACommand::MainStateSubscreenColour => {
+                    self.main_state.subscreen_colour = entry.value as u16;
                 },
-                HDMACommand::WriteCMathState(state) => {
-                    self.cmath_state = state;
+                HDMACommand::MainStateWindow1Left => {
+                    self.main_state.window_1_left = entry.value as u8;
                 },
-                HDMACommand::WriteOAM((index, spr)) => {
-                    self.oam[index as usize] = spr;
+                HDMACommand::MainStateWindow1Right => {
+                    self.main_state.window_1_right = entry.value as u8;
                 },
-                _ => {},
+                HDMACommand::MainStateWindow2Left => {
+                    self.main_state.window_2_left = entry.value as u8;
+                },
+                HDMACommand::MainStateWindow2Right => {
+                    self.main_state.window_2_right = entry.value as u8;
+                },
+                HDMACommand::MainStateBgcolWindows => {
+                    self.main_state.bgcol_windows = entry.value as u8;
+                },
+                HDMACommand::MainStateFlags => {
+                    self.main_state.flags = entry.value as u8;
+                },
+                HDMACommand::CMathStateScreenFade => {
+                    self.cmath_state.screen_fade = entry.value as u8;
+                },
+                HDMACommand::CMathStateFlags => {
+                    self.cmath_state.flags = entry.value as u8;
+                },
+                HDMACommand::Background0X => {
+                    self.bg0_state.scroll_x = entry.value as i16;
+                },
+                HDMACommand::Background0Y => {
+                    self.bg0_state.scroll_y = entry.value as i16;
+                },
+                HDMACommand::Background0Windows => {
+                    self.bg0_state.windows = entry.value as u8;
+                },
+                HDMACommand::Background0Flags => {
+                    self.bg0_state.flags = entry.value as u8;
+                },
+                HDMACommand::Background1X => {
+                    self.bg1_state.scroll_x = entry.value as i16;
+                },
+                HDMACommand::Background1Y => {
+                    self.bg1_state.scroll_y = entry.value as i16;
+                },
+                HDMACommand::Background1Windows => {
+                    self.bg1_state.windows = entry.value as u8;
+                },
+                HDMACommand::Background1Flags => {
+                    self.bg1_state.flags = entry.value as u8;
+                },
+                HDMACommand::HDMAEnable => {
+                    self.hdma_enable = entry.value as u8;
+                },
+                HDMACommand::Noop => {},
             }
         }
     }
