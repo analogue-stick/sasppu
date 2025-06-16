@@ -159,6 +159,9 @@
 .macro handle_cmath_only sub_ss, add_ss, ss_double, ss_half, ms_double, ms_half, five, ten, mask_split, one, four, spill_area
   ee.zero.q q7
   ee.vcmp.lt.s16 q4, q0, q7 // less than zero means bit 15 set
+  ee.vcmp.eq.s16 q5, q1, q7 // subscreen not zero
+  ee.notq q5, q5
+  ee.andq q4, q4, q5
   st.qr q4, \spill_area, 0 // Ive run out of registers, so this is going to be sent to the stack for its crimes.
   colour_split_both \five, \ten, \mask_split
   st.qr q5, \spill_area, 16 // main_r_bak
@@ -192,6 +195,9 @@
 .macro handle_cmath_and_fade sub_ss, add_ss, ss_double, ss_half, ms_double, ms_half, five, ten, mask_split, one, four, fade, spill_area
   ee.zero.q q7
   ee.vcmp.lt.s16 q4, q0, q7 // less than zero means bit 15 set
+  ee.vcmp.eq.s16 q5, q1, q7 // subscreen not zero
+  ee.notq q5, q5
+  ee.andq q4, q4, q5
   st.qr q4, \spill_area, 0 // Ive run out of registers, so this is going to be sent to the stack for its crimes.
   colour_split_both \five, \ten, \mask_split
   st.qr q5, \spill_area, 16 // main_r_bak
