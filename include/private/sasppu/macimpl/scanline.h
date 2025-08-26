@@ -117,15 +117,15 @@ static void IDENT(uint16x8_t *const scanline, int16_t y)
     HandleWindowType main_win = HANDLE_WINDOW_LOOKUP[SASPPU_main_state.bgcol_windows & 0x0F];
     HandleWindowType sub_win = HANDLE_WINDOW_LOOKUP[SASPPU_main_state.bgcol_windows & 0xF0];
 #if USE_INLINE_ASM
-    asm volatile inline("ee.zero.q q7");
+    asm volatile inline("ee.zero.q q3");
 #endif
 #endif
 
 #if USE_INLINE_ASM
     asm volatile inline("                                                                \n\t \
-        ee.vldbc.16.ip q0, %[main_state], 0 /* load mainscreen_colour */ \n\t \
+        ee.vldbc.16.ip q0, %[main_state], 2 /* load mainscreen_colour */ \n\t \
         ee.vldbc.16.ip q1, %[main_state], 2 /* load subscreen_colour */  \n\t \
-        " : : [main_state] "r"(&SASPPU_main_state));
+        " : : [main_state] "r"(&SASPPU_main_state.mainscreen_colour));
 #else
 #if BGCOL_ENABLE
     static const uint16x8_t zero = VBROADCAST(0);
@@ -143,12 +143,12 @@ static void IDENT(uint16x8_t *const scanline, int16_t y)
 #if BGCOL_ENABLE
 #if USE_INLINE_ASM
         asm volatile inline("                                   \n\t \
-            ee.vst.128.ip q7, %[subcol], -16    \n\t \
+            ee.vst.128.ip q3, %[subcol], -16    \n\t \
             mv.qr q2, q1                        \n\t \
             " : [subcol] "+r"(subcol));
         sub_win(scanline, x);
         asm volatile inline("                                   \n\t \
-            ee.vst.128.ip q7, %[maincol], -16   \n\t \
+            ee.vst.128.ip q3, %[maincol], -16   \n\t \
             mv.qr q2, q0                        \n\t \
             " : [maincol] "+r"(maincol));
         main_win(scanline, x);

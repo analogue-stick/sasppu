@@ -75,7 +75,9 @@
   wsr.sar a15
   ee.vmul.u16 q5, q5, q0
 
-  ee.vmul.u16 q6, q6, q1 // green shift up 4
+  movi a15, 0 // green shift up 4
+  wsr.sar a15
+  ee.vmul.u16 q6, q6, q1
 
   ee.orq q0, q6, q5
   ee.orq q0, q0, q7
