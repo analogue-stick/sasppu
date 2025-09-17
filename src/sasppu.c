@@ -33,6 +33,9 @@ mask16x8_t SASPPU_window_cache[(240 / 8) * 2];
 
 EXT_RAM_BSS_ATTR HDMAEntry SASPPU_hdma_tables[SASPPU_HDMA_TABLE_COUNT][240];
 
+bool SASPPU_forced_blank;
+static bool already_blanked[4] = {false, false, false, false};
+
 const uint16x8_t VECTOR_INCREMENTS = {0, 1, 2, 3, 4, 5, 6, 7};
 const uint16x8_t VECTOR_SCANLINE_END = VBROADCAST(SCANLINE_END);
 const uint16x8_t VECTOR_INCREMENTS_END = VECTOR_INCREMENTS + VECTOR_SCANLINE_END;
@@ -267,6 +270,44 @@ void SASPPU_render(uint16x8_t *fb, uint8_t section)
 {
     // Screen is rendered top to bottom for sanity's sake
     size_t y = 60 * section;
+
+    // If we're forcing a blank, fill the screen black and return immediately
+    if (SASPPU_forced_blank) {
+        // If we've already filled this section in black we can call it a day here
+        if (already_blanked[section]) {
+            return;
+        }
+
+#if USE_INLINE_ASM
+        asm volatile inline("ee.zero.q q0");
+#else
+        static const uint16x8_t zero = VBROADCAST(0);
+#endif
+
+        ssize_t x = ((240 / 8) * 60) - 1;
+        uint16x8_t *section_pointer = fb + (y * 240 / 8) + x;
+        do
+        {
+#if USE_INLINE_ASM
+            asm volatile inline("                           \n\t \
+                ee.vst.128.ip q0, %[section_pointer], -16   \n\t \
+                " : [section_pointer] "+r"(section_pointer) :);
+#else
+            *(section_pointer--) = zero;
+#endif
+#if VERIFY_INLINE_ASM
+            for (ssize_t i = 7; i >= 0; i--) {
+                assert(*(section_pointer + 1)[i] == 0);
+            }
+#endif
+        } while ((--x) >= 0);
+
+        already_blanked[section] = true;
+        return;
+    }
+
+    already_blanked[section] = false;
+
     do
     {
         if (SASPPU_hdma_enable)

@@ -127,6 +127,8 @@ extern uint16x8_t SASPPU_sprites[SPR_WIDTH * SPR_HEIGHT / 8];
 
 extern Sprite *SASPPU_sprite_cache[2][SPRITE_CACHE];
 
+extern bool SASPPU_forced_blank;
+
 #if __STDC_VERSION__ >= 202000
 typedef enum : uint16_t
 #else
