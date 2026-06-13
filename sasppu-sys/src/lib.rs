@@ -1,11 +1,14 @@
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::cast_sign_loss)]
 #![feature(portable_simd)]
-#![no_std]
 
-/**
+/*!
  * The following is the original Rust version of SASPPU, of which the C/ASM
  * version is ported.
  */
+
 use core::simd::prelude::*;
+use std::rc::Rc;
 
 use seq_macro::seq;
 
@@ -28,6 +31,7 @@ pub struct Sprite {
 }
 
 impl Sprite {
+    #[must_use]
     pub const fn new() -> Self {
         Sprite {
             x:          0,
@@ -49,23 +53,25 @@ impl Default for Sprite {
 }
 
 pub const SPR_ENABLED: u8 = 1 << 0;
-pub const SPR_PRIORITY: u8 = 1 << 1;
-pub const SPR_FLIP_X: u8 = 1 << 2;
-pub const SPR_FLIP_Y: u8 = 1 << 3;
-pub const SPR_C_MATH: u8 = 1 << 4;
-pub const SPR_DOUBLE: u8 = 1 << 5;
+pub const SPR_FLIP_X: u8 = 1 << 1;
+pub const SPR_FLIP_Y: u8 = 1 << 2;
+pub const SPR_C_MATH: u8 = 1 << 3;
+pub const SPR_DOUBLE: u8 = 1 << 4;
+pub const SPR_USER_TYPE_SHIFT: u8 = 5;
+pub const SPR_USER_TYPE: u8 = 7 << SPR_USER_TYPE_SHIFT;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Background {
+pub struct BackgroundState {
     pub scroll_x: i16,
     pub scroll_y: i16,
     pub windows:  u8,
     pub flags:    u8,
 }
 
-impl Background {
+impl BackgroundState {
+    #[must_use]
     pub const fn new() -> Self {
-        Background {
+        BackgroundState {
             scroll_x: 0,
             scroll_y: 0,
             windows:  0xFF,
@@ -74,7 +80,7 @@ impl Background {
     }
 }
 
-impl Default for Background {
+impl Default for BackgroundState {
     fn default() -> Self {
         Self::new()
     }
@@ -89,6 +95,7 @@ pub struct CMathState {
 }
 
 impl CMathState {
+    #[must_use]
     pub const fn new() -> Self {
         CMathState {
             screen_fade: 0,
@@ -128,6 +135,7 @@ pub struct MainState {
 }
 
 impl MainState {
+    #[must_use]
     pub const fn new() -> Self {
         MainState {
             mainscreen_colour: 0,
@@ -149,12 +157,8 @@ impl Default for MainState {
     }
 }
 
-pub const MAIN_SPR0_ENABLE: u8 = 1 << 0;
-pub const MAIN_SPR1_ENABLE: u8 = 1 << 1;
-pub const MAIN_BG0_ENABLE: u8 = 1 << 2;
-pub const MAIN_BG1_ENABLE: u8 = 1 << 3;
-pub const MAIN_CMATH_ENABLE: u8 = 1 << 4;
-pub const MAIN_BGCOL_WINDOW_ENABLE: u8 = 1 << 5;
+pub const MAIN_CMATH_ENABLE: u8 = 1 << 0;
+pub const MAIN_BGCOL_WINDOW_ENABLE: u8 = 1 << 1;
 
 pub const BG_WIDTH_POWER: usize = 8;
 pub const BG_HEIGHT_POWER: usize = 9;
@@ -165,7 +169,6 @@ pub const SPRITE_COUNT: usize = 256;
 pub const SPRITE_CACHE: usize = 16;
 
 pub type SpriteCache<'a> = [Option<&'a Sprite>; SPRITE_CACHE];
-pub type SpriteCaches<'a> = [SpriteCache<'a>; 2];
 
 pub const SPR_WIDTH_POWER: usize = 8;
 pub const SPR_HEIGHT_POWER: usize = 8;
@@ -177,15 +180,14 @@ pub const MAP_HEIGHT_POWER: usize = 6;
 pub const MAP_WIDTH: usize = 1 << MAP_WIDTH_POWER;
 pub const MAP_HEIGHT: usize = 1 << MAP_HEIGHT_POWER;
 
-pub type GraphicsPlane = [u16x8; (BG_WIDTH / 8) * BG_HEIGHT];
+pub type BackgroundPlane = [u16x8; (BG_WIDTH / 8) * BG_HEIGHT];
 pub type SpritePlane = [[u16x8; SPR_WIDTH / 8]; SPR_HEIGHT];
-pub type SpriteMap = [Sprite; SPRITE_COUNT];
+pub type SpriteState = [Sprite; SPRITE_COUNT];
 pub type BackgroundMap = [[u16; MAP_WIDTH]; MAP_HEIGHT];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HDMACommand {
     Noop,
-    Disable,
     MainStateMainscreenColour,
     MainStateSubscreenColour,
     MainStateWindow1Left,
@@ -196,18 +198,14 @@ pub enum HDMACommand {
     MainStateFlags,
     CMathStateScreenFade,
     CMathStateFlags,
-    Background0X,
-    Background0Y,
-    Background0Windows,
-    Background0Flags,
-    Background1X,
-    Background1Y,
-    Background1Windows,
-    Background1Flags,
-    HDMAEnable,
+    BackgroundX,
+    BackgroundY,
+    BackgroundWindows,
+    BackgroundFlags,
 }
 
 impl HDMACommand {
+    #[must_use]
     pub const fn new() -> Self {
         HDMACommand::Noop
     }
@@ -226,6 +224,7 @@ pub struct HDMAEntry {
 }
 
 impl HDMAEntry {
+    #[must_use]
     pub const fn new() -> Self {
         HDMAEntry {
             command: HDMACommand::new(),
@@ -240,30 +239,30 @@ impl Default for HDMAEntry {
     }
 }
 
-pub const SASPPU_HDMA_TABLE_COUNT: usize = 8;
+pub type HDMATable = [HDMAEntry; 240];
 
-pub type HDMATables = [[HDMAEntry; 240]; SASPPU_HDMA_TABLE_COUNT];
-
-pub struct SASPPU {
-    pub main_state:  MainState,
-    pub bg0_state:   Background,
-    pub bg1_state:   Background,
-    pub cmath_state: CMathState,
-
-    pub oam: SpriteMap,
-    pub bg0: BackgroundMap,
-    pub bg1: BackgroundMap,
-
-    pub background: GraphicsPlane,
-    pub sprites:    SpritePlane,
-
-    pub hdma_tables: HDMATables,
-    pub hdma_enable: u8,
+pub enum Command {
+    BindMainState(MainState),
+    BindCMathState(CMathState),
+    BindBackgroundPlane(Rc<BackgroundPlane>),
+    BindSpritePlane(Rc<SpritePlane>),
+    BindBackgroundMap(Rc<BackgroundMap>),
+    BindBackgroundState(BackgroundState),
+    BindSpriteState(Rc<SpriteState>),
+    ApplyHDMA(Rc<HDMATable>),
+    BeginFrame,
+    UpdateWindows,
+    DrawBackground,
+    DrawSprites(u8),
+    EndFrame,
 }
 
-impl Default for SASPPU {
-    fn default() -> Self {
-        Self::new()
+pub struct CommandBuffer(Vec<Command>);
+
+impl CommandBuffer {
+    #[must_use]
+    pub fn compile(commands: Vec<Command>) -> Self {
+        Self(commands)
     }
 }
 
@@ -365,9 +364,9 @@ fn swimzleoo(a: u16x8, b: u16x8, offset: usize) -> u16x8 {
 
 #[inline]
 fn handle_bg(
-    state: &Background,  // a9
-    map: &BackgroundMap, // a10
-    graphics: &GraphicsPlane,
+    state: BackgroundState, // a9
+    map: &BackgroundMap,    // a10
+    graphics: &BackgroundPlane,
     window_handler: HandleWindowType,
     main_col: &mut [u16x8; 240 / 8], // q0
     sub_col: &mut [u16x8; 240 / 8],  // q1
@@ -377,8 +376,8 @@ fn handle_bg(
 ) {
     let y_pos = (((y + state.scroll_y) as usize) >> 3) & ((MAP_HEIGHT) - 1);
     let mut x_pos = (((240 - 8 + state.scroll_x) as usize) >> 3) & ((MAP_WIDTH) - 1);
-    let offset_x = ((state.scroll_x) & 0x7u16 as i16) as usize;
-    let offset_y = ((y + state.scroll_y) & 0x7u16 as i16) as usize;
+    let offset_x = ((state.scroll_x) & 0x7u16.cast_signed()) as usize;
+    let offset_y = ((y + state.scroll_y) & 0x7u16.cast_signed()) as usize;
 
     let bg_map = map[y_pos][x_pos]; // -> q5
     let mut bg_1 = if (bg_map & 0b10) > 0 {
@@ -441,7 +440,7 @@ fn handle_sprite<const FLIP_X: bool, const FLIP_Y: bool, const CMATH: bool, cons
 
     let mut offset_y = y - sprite.y;
     if FLIP_Y {
-        offset_y = sprite_width as i16 - offset_y - 1;
+        offset_y = i16::from(sprite_width) - offset_y - 1;
     }
     if DOUBLE {
         offset_y >>= 1;
@@ -454,14 +453,13 @@ fn handle_sprite<const FLIP_X: bool, const FLIP_Y: bool, const CMATH: bool, cons
     let mut spr_2;
 
     let mut start_x = (sprite.x as isize) / 8;
-    let mut end_x = ((sprite.x + sprite_width as i16) as isize) / 8;
+    let mut end_x = ((sprite.x + i16::from(sprite_width)) as isize) / 8;
 
-    if (sprite.x & 0x7) == 0 {
+    if sprite.x.trailing_zeros() >= 3 {
         start_x -= 1;
         end_x -= 1;
     }
 
-    let start_x = start_x;
     let start_x = start_x;
 
     let mut x = end_x;
@@ -475,7 +473,7 @@ fn handle_sprite<const FLIP_X: bool, const FLIP_Y: bool, const CMATH: bool, cons
             u16x8::splat(0)
         } else {
             graphics[offset_y + sprite.graphics_y as usize]
-                [(x_pos as usize >> 3) + sprite.graphics_x as usize]
+                [(x_pos.cast_unsigned() >> 3) + sprite.graphics_x as usize]
         };
 
         if DOUBLE {
@@ -486,7 +484,7 @@ fn handle_sprite<const FLIP_X: bool, const FLIP_Y: bool, const CMATH: bool, cons
                 (spr_1_high, spr_1) = (spr_1.reverse(), spr_1_high.reverse());
             }
 
-            if x >= 0 && x < 30 {
+            if (0..30).contains(&x) {
                 let mut spr_col = swimzleoo(spr_1_high, spr_2, offset); // q4
 
                 if CMATH {
@@ -494,12 +492,17 @@ fn handle_sprite<const FLIP_X: bool, const FLIP_Y: bool, const CMATH: bool, cons
                 }
 
                 select_correct_handle_window(sprite.windows)(
-                    window_1, window_2, main_col, sub_col, x as usize, spr_col,
+                    window_1,
+                    window_2,
+                    main_col,
+                    sub_col,
+                    x.cast_unsigned(),
+                    spr_col,
                 );
             }
             x -= 1;
 
-            if x >= 0 && x < 30 {
+            if (0..30).contains(&x) {
                 let mut spr_col = swimzleoo(spr_1, spr_1_high, offset); // q4
 
                 if CMATH {
@@ -507,7 +510,12 @@ fn handle_sprite<const FLIP_X: bool, const FLIP_Y: bool, const CMATH: bool, cons
                 }
 
                 select_correct_handle_window(sprite.windows)(
-                    window_1, window_2, main_col, sub_col, x as usize, spr_col,
+                    window_1,
+                    window_2,
+                    main_col,
+                    sub_col,
+                    x.cast_unsigned(),
+                    spr_col,
                 );
             }
             x -= 1;
@@ -516,7 +524,7 @@ fn handle_sprite<const FLIP_X: bool, const FLIP_Y: bool, const CMATH: bool, cons
                 spr_1 = spr_1.reverse();
             }
 
-            if x >= 0 && x < 30 {
+            if (0..30).contains(&x) {
                 let mut spr_col = swimzleoo(spr_1, spr_2, offset); // q4
 
                 if CMATH {
@@ -524,7 +532,12 @@ fn handle_sprite<const FLIP_X: bool, const FLIP_Y: bool, const CMATH: bool, cons
                 }
 
                 select_correct_handle_window(sprite.windows)(
-                    window_1, window_2, main_col, sub_col, x as usize, spr_col,
+                    window_1,
+                    window_2,
+                    main_col,
+                    sub_col,
+                    x.cast_unsigned(),
+                    spr_col,
                 );
             }
             x -= 1;
@@ -602,9 +615,9 @@ macro_rules! add_screens {
 
 macro_rules! sub_screens {
     ($main_r:ident, $main_g:ident, $main_b:ident, $sub_r:ident, $sub_g:ident, $sub_b:ident) => {
-        $main_r = $main_r - $sub_r;
-        $main_g = $main_g - $sub_g;
-        $main_b = $main_b - $sub_b;
+        $main_r -= $sub_r;
+        $main_g -= $sub_g;
+        $main_b -= $sub_b;
         $main_r = $main_r
             .simd_lt(i16x8::splat(0))
             .select(i16x8::splat(0), $main_r); // maps to EE.VRELU.S16 x, 0, 0
@@ -620,11 +633,12 @@ macro_rules! sub_screens {
 #[inline]
 fn no_cmath_shift(main_col: &mut [u16x8; 240 / 8]) {
     for x in (0..(240 / 8)).rev() {
-        main_col[x] = ((main_col[x] & u16x8::splat(0b0111111111100000)) << 1)
-            | (main_col[x] & u16x8::splat(0b00011111));
+        main_col[x] = ((main_col[x] & u16x8::splat(0b0111_1111_1110_0000)) << 1)
+            | (main_col[x] & u16x8::splat(0b0001_1111));
     }
 }
 
+#[allow(clippy::similar_names)]
 #[inline]
 fn handle_cmath<
     const HALF_MAIN_SCREEN: bool,
@@ -636,12 +650,12 @@ fn handle_cmath<
     const FADE_ENABLE: bool,
     const CMATH_ENABLE: bool,
 >(
-    cmath_state: &CMathState,
+    cmath_state: CMathState,
     main_col: &mut [u16x8; 240 / 8], // q0
     sub_col: &mut [u16x8; 240 / 8],  // q1
 ) {
     if FADE_ENABLE || CMATH_ENABLE {
-        let mask = u16x8::splat(0b0111110000000000);
+        let mask = u16x8::splat(0b0111_1100_0000_0000);
         for x in (0..(240 / 8)).rev() {
             let this_main_col = main_col[x];
             let use_cmath = this_main_col.simd_ge(u16x8::splat(0x8000));
@@ -652,6 +666,7 @@ fn handle_cmath<
                 let (mut sub_r, mut sub_g, mut sub_b) = split_main!(this_sub_col, mask);
 
                 let main_r_bak = main_r;
+
                 let main_g_bak = main_g;
                 let main_b_bak = main_b;
 
@@ -679,7 +694,7 @@ fn handle_cmath<
                 main_b = use_cmath.select(main_b, main_b_bak);
             }
             if FADE_ENABLE {
-                let fade = i16x8::splat(cmath_state.screen_fade as i16);
+                let fade = i16x8::splat(i16::from(cmath_state.screen_fade));
                 main_r = (main_r >> 8) * fade;
                 main_g = (main_g >> 8) * fade;
                 main_b = (main_b >> 8) * fade;
@@ -712,7 +727,7 @@ macro_rules! generate_handle_cmaths {
     };
 }
 
-type HandleCMathType = fn(&CMathState, &mut [u16x8; 240 / 8], &mut [u16x8; 240 / 8]);
+type HandleCMathType = fn(CMathState, &mut [u16x8; 240 / 8], &mut [u16x8; 240 / 8]);
 
 seq!(N in 0..256 {
 static HANDLE_CMATH_LOOKUP: [HandleCMathType; 256] =
@@ -724,297 +739,275 @@ static HANDLE_CMATH_LOOKUP: [HandleCMathType; 256] =
 });
 
 #[inline]
-fn select_correct_handle_cmaths(state: &CMathState) -> HandleCMathType {
+fn select_correct_handle_cmaths(state: CMathState) -> HandleCMathType {
     HANDLE_CMATH_LOOKUP[state.flags as usize]
 }
 
-macro_rules! generate_per_scanline {
-    ($consts:expr) => {
-        SASPPU::per_scanline::<
-            { ($consts) & MAIN_BG0_ENABLE > 0 },
-            { ($consts) & MAIN_BG1_ENABLE > 0 },
-            { ($consts) & MAIN_SPR0_ENABLE > 0 },
-            { ($consts) & MAIN_SPR1_ENABLE > 0 },
-            { ($consts) & MAIN_CMATH_ENABLE > 0 },
-            { ($consts) & MAIN_BGCOL_WINDOW_ENABLE > 0 },
-        >
-    };
-}
+fn command_update_windows(
+    main_state: Option<&MainState>,
+    window_1_cache: &mut [mask16x8; 240 / 8],
+    window_2_cache: &mut [mask16x8; 240 / 8],
+) {
+    *window_1_cache = [mask16x8::default(); 240 / 8];
+    *window_2_cache = [mask16x8::default(); 240 / 8];
 
-type PerScanlineType = fn(
-    &SASPPU,
-    &SpriteCaches,
-    &mut [u16x8; 240 / 8],
-    u8,
-    HandleWindowType,
-    HandleWindowType,
-    HandleWindowType,
-    HandleWindowType,
-    HandleCMathType,
-);
-
-seq!(N in 0..64 {
-static PER_SCANLINE_LOOKUP: [PerScanlineType; 64] =
-    [
-        #(
-        generate_per_scanline!(N),
-        )*
-    ];
-});
-
-impl SASPPU {
-    #[inline]
-    fn per_scanline<
-        const BG0_ENABLE: bool,
-        const BG1_ENABLE: bool,
-        const SPR0_ENABLE: bool,
-        const SPR1_ENABLE: bool,
-        const CMATH_ENABLE: bool,
-        const BGCOL_ENABLE: bool,
-    >(
-        &self,
-        sprite_caches: &SpriteCaches,
-        scanline: &mut [u16x8; 240 / 8],
-        y: u8,
-        handle_bgcol_main_window: HandleWindowType,
-        handle_bgcol_sub_window: HandleWindowType,
-        handle_bg0_window: HandleWindowType,
-        handle_bg1_window: HandleWindowType,
-        handle_cmath: HandleCMathType,
-    ) {
-        let mut window_1_cache = [mask16x8::default(); 240 / 8];
-        let mut window_2_cache = [mask16x8::default(); 240 / 8];
-
+    if let Some(main_state) = main_state {
         // x_window = q3
         let mut x_window = u16x8::from_array([0, 1, 2, 3, 4, 5, 6, 7]) + u16x8::splat(240 - 8);
         for x in (0..(240 / 8)).rev() {
             // window_1 = q2
             window_1_cache[x] = (x_window
-                .simd_gt(u16x8::splat(self.main_state.window_1_left as u16))
-                | x_window.simd_eq(u16x8::splat(self.main_state.window_1_left as u16)))
-                & (x_window.simd_lt(u16x8::splat(self.main_state.window_1_right as u16))
-                    | x_window.simd_eq(u16x8::splat(self.main_state.window_1_right as u16)));
+                .simd_gt(u16x8::splat(u16::from(main_state.window_1_left)))
+                | x_window.simd_eq(u16x8::splat(u16::from(main_state.window_1_left))))
+                & (x_window.simd_lt(u16x8::splat(u16::from(main_state.window_1_right)))
+                    | x_window.simd_eq(u16x8::splat(u16::from(main_state.window_1_right))));
             // window_2 = q3
             window_2_cache[x] = (x_window
-                .simd_gt(u16x8::splat(self.main_state.window_2_left as u16))
-                | x_window.simd_eq(u16x8::splat(self.main_state.window_2_left as u16)))
-                & (x_window.simd_lt(u16x8::splat(self.main_state.window_2_right as u16))
-                    | x_window.simd_eq(u16x8::splat(self.main_state.window_2_right as u16)));
+                .simd_gt(u16x8::splat(u16::from(main_state.window_2_left)))
+                | x_window.simd_eq(u16x8::splat(u16::from(main_state.window_2_left))))
+                & (x_window.simd_lt(u16x8::splat(u16::from(main_state.window_2_right)))
+                    | x_window.simd_eq(u16x8::splat(u16::from(main_state.window_2_right))));
 
             x_window -= u16x8::splat(8);
         }
+    }
+}
 
-        let mut sub_screen = [u16x8::default(); 240 / 8];
-
-        if BGCOL_ENABLE {
+fn command_begin_frame(
+    main_state: Option<&MainState>,
+    main_screen: &mut [u16x8; 240 / 8],
+    sub_screen: &mut [u16x8; 240 / 8],
+    window_1_cache: &[mask16x8; 240 / 8],
+    window_2_cache: &[mask16x8; 240 / 8],
+) {
+    if let Some(main_state) = main_state {
+        if main_state.flags & MAIN_BGCOL_WINDOW_ENABLE > 0 {
             for x in (0..(240 / 8)).rev() {
-                scanline[x] = u16x8::splat(0);
+                main_screen[x] = u16x8::splat(0);
                 sub_screen[x] = u16x8::splat(0);
-                handle_bgcol_sub_window(
-                    &window_1_cache,
-                    &window_2_cache,
-                    scanline,
-                    &mut sub_screen,
+                select_correct_handle_window(main_state.bgcol_windows & 0xF0)(
+                    window_1_cache,
+                    window_2_cache,
+                    main_screen,
+                    sub_screen,
                     x,
-                    u16x8::splat(self.main_state.subscreen_colour),
+                    u16x8::splat(main_state.subscreen_colour),
                 );
-                handle_bgcol_main_window(
-                    &window_1_cache,
-                    &window_2_cache,
-                    scanline,
-                    &mut sub_screen,
+                select_correct_handle_window(main_state.bgcol_windows & 0x0F)(
+                    window_1_cache,
+                    window_2_cache,
+                    main_screen,
+                    sub_screen,
                     x,
-                    u16x8::splat(self.main_state.mainscreen_colour),
+                    u16x8::splat(main_state.mainscreen_colour),
                 );
             }
         } else {
             for x in (0..(240 / 8)).rev() {
-                scanline[x] = u16x8::splat(self.main_state.mainscreen_colour);
-                sub_screen[x] = u16x8::splat(self.main_state.subscreen_colour);
+                main_screen[x] = u16x8::splat(main_state.mainscreen_colour);
+                sub_screen[x] = u16x8::splat(main_state.subscreen_colour);
             }
-        }
-
-        // q0, q1, q2, q3, q4, q5, q6, q7 -> q0, q1
-        if BG0_ENABLE {
-            handle_bg(
-                &self.bg0_state,
-                &self.bg0,
-                &self.background,
-                handle_bg0_window,
-                scanline,
-                &mut sub_screen,
-                y as i16,
-                &window_1_cache,
-                &window_2_cache,
-            );
-        }
-
-        if SPR0_ENABLE {
-            for spr in sprite_caches[0].iter().rev() {
-                if spr.is_none() {
-                    continue;
-                }
-                select_correct_handle_sprite(spr.unwrap())(
-                    spr.unwrap(),
-                    &self.sprites,
-                    scanline,
-                    &mut sub_screen,
-                    y as i16,
-                    &window_1_cache,
-                    &window_2_cache,
-                )
-            }
-        }
-
-        if BG1_ENABLE {
-            handle_bg(
-                &self.bg1_state,
-                &self.bg1,
-                &self.background,
-                handle_bg1_window,
-                scanline,
-                &mut sub_screen,
-                y as i16,
-                &window_1_cache,
-                &window_2_cache,
-            );
-        }
-
-        if SPR1_ENABLE {
-            for spr in sprite_caches[1].iter().rev() {
-                if spr.is_none() {
-                    continue;
-                }
-                select_correct_handle_sprite(spr.unwrap())(
-                    spr.unwrap(),
-                    &self.sprites,
-                    scanline,
-                    &mut sub_screen,
-                    y as i16,
-                    &window_1_cache,
-                    &window_2_cache,
-                )
-            }
-        }
-
-        if CMATH_ENABLE {
-            handle_cmath(&self.cmath_state, scanline, &mut sub_screen);
-        } else {
-            no_cmath_shift(scanline);
         }
     }
+}
 
-    #[inline]
-    fn select_correct_per_scanline(&self) -> PerScanlineType {
-        PER_SCANLINE_LOOKUP[self.main_state.flags as usize]
+fn command_draw_background(
+    background_state: Option<&BackgroundState>,
+    background_map: Option<&Rc<BackgroundMap>>,
+    background_plane: Option<&Rc<BackgroundPlane>>,
+    main_screen: &mut [u16x8; 240 / 8],
+    sub_screen: &mut [u16x8; 240 / 8],
+    window_1_cache: &[mask16x8; 240 / 8],
+    window_2_cache: &[mask16x8; 240 / 8],
+    y: u8,
+) {
+    if let Some(background_state) = background_state
+        && let Some(background_map) = background_map
+        && let Some(background_plane) = background_plane
+    {
+        handle_bg(
+            *background_state,
+            background_map,
+            background_plane,
+            select_correct_handle_window(background_state.windows),
+            main_screen,
+            sub_screen,
+            i16::from(y),
+            window_1_cache,
+            window_2_cache,
+        );
     }
+}
 
-    fn handle_hdma<'a>(&'a mut self, y: u8) {
-        for table in 0..SASPPU_HDMA_TABLE_COUNT {
-            if ((self.hdma_enable >> table) & 1) == 0 {
+fn command_draw_sprites(
+    sprite_plane: Option<&Rc<SpritePlane>>,
+    sprite_cache: &SpriteCache,
+    main_screen: &mut [u16x8; 240 / 8],
+    sub_screen: &mut [u16x8; 240 / 8],
+    window_1_cache: &[mask16x8; 240 / 8],
+    window_2_cache: &[mask16x8; 240 / 8],
+    y: u8,
+) {
+    if let Some(sprite_plane) = sprite_plane {
+        for spr in sprite_cache.iter().rev() {
+            if spr.is_none() {
                 continue;
             }
-
-            let entry = self.hdma_tables[table as usize][y as usize];
-
-            match entry.command {
-                HDMACommand::Disable => {
-                    self.hdma_enable &= !(1 << table);
-                },
-                HDMACommand::MainStateMainscreenColour => {
-                    self.main_state.mainscreen_colour = entry.value as u16;
-                },
-                HDMACommand::MainStateSubscreenColour => {
-                    self.main_state.subscreen_colour = entry.value as u16;
-                },
-                HDMACommand::MainStateWindow1Left => {
-                    self.main_state.window_1_left = entry.value as u8;
-                },
-                HDMACommand::MainStateWindow1Right => {
-                    self.main_state.window_1_right = entry.value as u8;
-                },
-                HDMACommand::MainStateWindow2Left => {
-                    self.main_state.window_2_left = entry.value as u8;
-                },
-                HDMACommand::MainStateWindow2Right => {
-                    self.main_state.window_2_right = entry.value as u8;
-                },
-                HDMACommand::MainStateBgcolWindows => {
-                    self.main_state.bgcol_windows = entry.value as u8;
-                },
-                HDMACommand::MainStateFlags => {
-                    self.main_state.flags = entry.value as u8;
-                },
-                HDMACommand::CMathStateScreenFade => {
-                    self.cmath_state.screen_fade = entry.value as u8;
-                },
-                HDMACommand::CMathStateFlags => {
-                    self.cmath_state.flags = entry.value as u8;
-                },
-                HDMACommand::Background0X => {
-                    self.bg0_state.scroll_x = entry.value as i16;
-                },
-                HDMACommand::Background0Y => {
-                    self.bg0_state.scroll_y = entry.value as i16;
-                },
-                HDMACommand::Background0Windows => {
-                    self.bg0_state.windows = entry.value as u8;
-                },
-                HDMACommand::Background0Flags => {
-                    self.bg0_state.flags = entry.value as u8;
-                },
-                HDMACommand::Background1X => {
-                    self.bg1_state.scroll_x = entry.value as i16;
-                },
-                HDMACommand::Background1Y => {
-                    self.bg1_state.scroll_y = entry.value as i16;
-                },
-                HDMACommand::Background1Windows => {
-                    self.bg1_state.windows = entry.value as u8;
-                },
-                HDMACommand::Background1Flags => {
-                    self.bg1_state.flags = entry.value as u8;
-                },
-                HDMACommand::HDMAEnable => {
-                    self.hdma_enable = entry.value as u8;
-                },
-                HDMACommand::Noop => {},
-            }
+            select_correct_handle_sprite(spr.unwrap())(
+                spr.unwrap(),
+                sprite_plane,
+                main_screen,
+                sub_screen,
+                i16::from(y),
+                window_1_cache,
+                window_2_cache,
+            );
         }
     }
+}
 
-    fn handle_sprite_cache<'a, 'b>(&'a self, y: u8, sprite_caches: &mut SpriteCaches<'b>)
-    where
-        'a: 'b,
+fn command_end_frame(
+    main_state: Option<&MainState>,
+    cmath_state: Option<&CMathState>,
+    main_screen: &mut [u16x8; 240 / 8],
+    sub_screen: &mut [u16x8; 240 / 8],
+) {
+    if let Some(main_state) = main_state
+        && let Some(cmath_state) = cmath_state
     {
-        let mut sprites_indcies = [0, 0];
-        for spr in self.oam.iter() {
+        if main_state.flags & MAIN_CMATH_ENABLE > 0 {
+            select_correct_handle_cmaths(*cmath_state)(*cmath_state, main_screen, sub_screen);
+        } else {
+            no_cmath_shift(main_screen);
+        }
+    }
+}
+
+#[allow(clippy::cast_possible_truncation)]
+fn command_apply_hdma(
+    main_state: Option<&mut MainState>,
+    cmath_state: Option<&mut CMathState>,
+    background_state: Option<&mut BackgroundState>,
+    table: &HDMATable,
+    y: u8,
+) {
+    let entry = table[y as usize];
+
+    match entry.command {
+        HDMACommand::MainStateMainscreenColour => {
+            if let Some(main_state) = main_state {
+                main_state.mainscreen_colour = entry.value;
+            }
+        },
+        HDMACommand::MainStateSubscreenColour => {
+            if let Some(main_state) = main_state {
+                main_state.subscreen_colour = entry.value;
+            }
+        },
+        HDMACommand::MainStateWindow1Left => {
+            if let Some(main_state) = main_state {
+                main_state.window_1_left = entry.value as u8;
+            }
+        },
+        HDMACommand::MainStateWindow1Right => {
+            if let Some(main_state) = main_state {
+                main_state.window_1_right = entry.value as u8;
+            }
+        },
+        HDMACommand::MainStateWindow2Left => {
+            if let Some(main_state) = main_state {
+                main_state.window_2_left = entry.value as u8;
+            }
+        },
+        HDMACommand::MainStateWindow2Right => {
+            if let Some(main_state) = main_state {
+                main_state.window_2_right = entry.value as u8;
+            }
+        },
+        HDMACommand::MainStateBgcolWindows => {
+            if let Some(main_state) = main_state {
+                main_state.bgcol_windows = entry.value as u8;
+            }
+        },
+        HDMACommand::MainStateFlags => {
+            if let Some(main_state) = main_state {
+                main_state.flags = entry.value as u8;
+            }
+        },
+        HDMACommand::CMathStateScreenFade => {
+            if let Some(cmath_state) = cmath_state {
+                cmath_state.screen_fade = entry.value as u8;
+            }
+        },
+        HDMACommand::CMathStateFlags => {
+            if let Some(cmath_state) = cmath_state {
+                cmath_state.flags = entry.value as u8;
+            }
+        },
+        HDMACommand::BackgroundX => {
+            if let Some(background_state) = background_state {
+                background_state.scroll_x = entry.value.cast_signed();
+            }
+        },
+        HDMACommand::BackgroundY => {
+            if let Some(background_state) = background_state {
+                background_state.scroll_y = entry.value.cast_signed();
+            }
+        },
+        HDMACommand::BackgroundWindows => {
+            if let Some(background_state) = background_state {
+                background_state.windows = entry.value as u8;
+            }
+        },
+        HDMACommand::BackgroundFlags => {
+            if let Some(background_state) = background_state {
+                background_state.flags = entry.value as u8;
+            }
+        },
+        HDMACommand::Noop => {},
+    }
+}
+
+fn handle_sprite_cache<'a, 'b>(
+    sprite_state: Option<&'a Rc<SpriteState>>,
+    y: u8,
+    sprite_cache: &mut SpriteCache<'b>,
+    user_type: u8,
+) where
+    'a: 'b,
+{
+    let mut sprites_index = 0;
+    if let Some(sprite_state) = sprite_state {
+        for spr in sprite_state.iter() {
             let flags = spr.flags;
             let windows = spr.windows;
-            let iy = y as i16;
+            let iy = i16::from(y);
 
-            let spr_height = spr.height as i16;
-            let spr_width = spr.width as i16;
+            let spr_height = i16::from(spr.height);
+            let spr_width = i16::from(spr.width);
 
             let main_screen_enable = (windows & 0x0F) > 0;
             let sub_screen_enable = (windows & 0xF0) > 0;
 
             let enabled = (flags & SPR_ENABLED) > 0;
-            let priority = (flags & SPR_PRIORITY) > 0;
             // let flip_x = (flags & SPR_FLIP_X) > 0;
             // let flip_y = (flags & SPR_FLIP_Y) > 0;
             // let cmath_enabled = (flags & SPR_C_MATH) > 0;
             let double_enabled = (flags & SPR_DOUBLE) > 0;
+            let sprite_user_type = (flags & SPR_USER_TYPE) >> SPR_USER_TYPE_SHIFT;
 
             // If not enabled, skip
             if !enabled {
                 continue;
             }
 
+            // If user type does not match, skip
+            if sprite_user_type != user_type {
+                continue;
+            }
+
             // If we've hit the limit, skip
-            if (priority && (sprites_indcies[1] == SPRITE_CACHE))
-                || (!priority && (sprites_indcies[0] == SPRITE_CACHE))
-            {
+            if sprites_index == SPRITE_CACHE {
                 continue;
             }
 
@@ -1033,76 +1026,129 @@ impl SASPPU {
             };
 
             if window_enabled && top_border && bottom_border && right_border && left_border {
-                if priority {
-                    sprite_caches[1][sprites_indcies[1]] = Some(spr);
-                    sprites_indcies[1] += 1;
-                } else {
-                    sprite_caches[0][sprites_indcies[0]] = Some(spr);
-                    sprites_indcies[0] += 1;
-                }
+                sprite_cache[sprites_index] = Some(spr);
+                sprites_index += 1;
 
-                if (sprites_indcies[1] == SPRITE_CACHE) && (sprites_indcies[0] == SPRITE_CACHE) {
+                if sprites_index == SPRITE_CACHE {
                     break;
                 }
             }
         }
-        while sprites_indcies[0] < SPRITE_CACHE {
-            sprite_caches[0][sprites_indcies[0]] = None;
-            sprites_indcies[0] += 1;
-        }
-        while sprites_indcies[1] < SPRITE_CACHE {
-            sprite_caches[1][sprites_indcies[1]] = None;
-            sprites_indcies[1] += 1;
-        }
     }
+    while sprites_index < SPRITE_CACHE {
+        sprite_cache[sprites_index] = None;
+        sprites_index += 1;
+    }
+}
 
-    pub fn render<'a>(&'a mut self, screen: &mut [[u16; 240]; 240]) {
-        let mut scanline = [u16x8::splat(0); 240 / 8];
-        for y in 0..240 {
-            let mut sprite_caches: SpriteCaches = [[None; SPRITE_CACHE]; 2];
-            self.handle_hdma(y);
-            self.handle_sprite_cache(y, &mut sprite_caches);
+#[allow(clippy::too_many_lines)]
+pub fn render(screen: &mut [[u16; 240]; 240], command_buffer: &CommandBuffer) {
+    let mut main_screen = [u16x8::splat(0); 240 / 8];
+    let mut sub_screen = [u16x8::splat(0); 240 / 8];
+    let mut sprite_cache: SpriteCache;
+    let mut window_1_cache: [mask16x8; 240 / 8];
+    let mut window_2_cache: [mask16x8; 240 / 8];
+    let mut this_main_state: Option<MainState> = None;
+    let mut this_cmath_state: Option<CMathState> = None;
+    let mut this_background_plane: Option<Rc<BackgroundPlane>> = None;
+    let mut this_sprite_plane: Option<Rc<SpritePlane>> = None;
+    let mut this_background_map: Option<Rc<BackgroundMap>> = None;
+    let mut this_background_state: Option<BackgroundState> = None;
+    let mut this_sprite_state: Option<Rc<SpriteState>> = None;
+    for y in 0..240 {
+        sprite_cache = [None; SPRITE_CACHE];
+        window_1_cache = [mask16x8::default(); 240 / 8];
+        window_2_cache = [mask16x8::default(); 240 / 8];
 
-            let handle_bg0_window = select_correct_handle_window(self.bg0_state.windows);
-            let handle_bg1_window = select_correct_handle_window(self.bg1_state.windows);
-            let handle_bgcol_main_window =
-                select_correct_handle_window(self.main_state.bgcol_windows & 0x0F);
-            let handle_bgcol_sub_window =
-                select_correct_handle_window(self.main_state.bgcol_windows & 0xF0);
-            let handle_cmath = select_correct_handle_cmaths(&self.cmath_state);
-
-            self.select_correct_per_scanline()(
-                self,
-                &mut sprite_caches,
-                &mut scanline,
-                y,
-                handle_bgcol_main_window,
-                handle_bgcol_sub_window,
-                handle_bg0_window,
-                handle_bg1_window,
-                handle_cmath,
-            );
-
-            for x in (0..240).step_by(8).rev() {
-                screen[y as usize][x as usize..x as usize + 8]
-                    .clone_from_slice(scanline[x / 8].as_array())
+        for command in &command_buffer.0 {
+            match command {
+                Command::BindMainState(main_state) => {
+                    this_main_state = Some(*main_state);
+                },
+                Command::BindCMathState(cmath_state) => this_cmath_state = Some(*cmath_state),
+                Command::BindBackgroundPlane(background_plane) => {
+                    this_background_plane = Some(background_plane.clone());
+                },
+                Command::BindSpritePlane(sprite_plane) => {
+                    this_sprite_plane = Some(sprite_plane.clone());
+                },
+                Command::BindBackgroundMap(background_map) => {
+                    this_background_map = Some(background_map.clone());
+                },
+                Command::BindBackgroundState(background_state) => {
+                    this_background_state = Some(*background_state);
+                },
+                Command::BindSpriteState(sprite_state) => {
+                    sprite_cache = [None; SPRITE_CACHE];
+                    this_sprite_state = Some(sprite_state.clone());
+                },
+                Command::ApplyHDMA(table) => {
+                    command_apply_hdma(
+                        this_main_state.as_mut(),
+                        this_cmath_state.as_mut(),
+                        this_background_state.as_mut(),
+                        table,
+                        y,
+                    );
+                },
+                Command::BeginFrame => {
+                    command_begin_frame(
+                        this_main_state.as_ref(),
+                        &mut main_screen,
+                        &mut sub_screen,
+                        &window_1_cache,
+                        &window_2_cache,
+                    );
+                },
+                Command::UpdateWindows => {
+                    command_update_windows(
+                        this_main_state.as_ref(),
+                        &mut window_1_cache,
+                        &mut window_2_cache,
+                    );
+                },
+                Command::DrawBackground => {
+                    command_draw_background(
+                        this_background_state.as_ref(),
+                        this_background_map.as_ref(),
+                        this_background_plane.as_ref(),
+                        &mut main_screen,
+                        &mut sub_screen,
+                        &window_1_cache,
+                        &window_2_cache,
+                        y,
+                    );
+                },
+                Command::DrawSprites(user_type) => {
+                    handle_sprite_cache(
+                        this_sprite_state.as_ref(),
+                        y,
+                        &mut sprite_cache,
+                        *user_type,
+                    );
+                    command_draw_sprites(
+                        this_sprite_plane.as_ref(),
+                        &sprite_cache,
+                        &mut main_screen,
+                        &mut sub_screen,
+                        &window_1_cache,
+                        &window_2_cache,
+                        y,
+                    );
+                },
+                Command::EndFrame => {
+                    command_end_frame(
+                        this_main_state.as_ref(),
+                        this_cmath_state.as_ref(),
+                        &mut main_screen,
+                        &mut sub_screen,
+                    );
+                },
             }
         }
-    }
 
-    pub const fn new() -> Self {
-        SASPPU {
-            bg0:         [[16; MAP_WIDTH]; MAP_HEIGHT],
-            bg1:         [[16; MAP_WIDTH]; MAP_HEIGHT],
-            main_state:  MainState::new(),
-            bg0_state:   Background::new(),
-            bg1_state:   Background::new(),
-            cmath_state: CMathState::new(),
-            oam:         [Sprite::new(); SPRITE_COUNT],
-            background:  [u16x8::from_array([0; 8]); (BG_WIDTH / 8) * BG_HEIGHT],
-            sprites:     [[u16x8::from_array([0; 8]); SPR_WIDTH / 8]; SPR_HEIGHT],
-            hdma_tables: [[HDMAEntry::new(); 240]; SASPPU_HDMA_TABLE_COUNT],
-            hdma_enable: 0,
+        for x in (0..240).step_by(8).rev() {
+            screen[y as usize][x..x + 8].clone_from_slice(main_screen[x / 8].as_array());
         }
     }
 }

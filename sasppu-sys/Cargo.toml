@@ -1,18 +1,10 @@
-cargo-features = ["edition2024"]
 [package]
 name = "sasppu-sys"
 version = "0.1.0"
 edition = "2024"
 
-[target.xtensa-esp32s3-none-elf.dependencies]
-esp-backtrace = { version = "0.15", features = [
-    "esp32s3",
-    "exception-handler",
-    "panic-handler",
-    "println",
-] }
-esp-hal = { version = "0.23", features = ["esp32s3"] }
-esp-println = { version = "0.13", features = ["esp32s3", "log"] }
+[lints.clippy]
+pedantic = "warn"
 
 [dependencies]
 seq-macro = "0.3"
