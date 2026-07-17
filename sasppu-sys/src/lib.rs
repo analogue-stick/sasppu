@@ -48,7 +48,7 @@ impl Default for Sprite {
     }
 }
 
-pub const SPR_USER_TYPE: u8 = 7 << 0;
+pub const SPR_USER_TYPE: u8 = 7;
 pub const SPR_ENABLED: u8 = 1 << 3;
 pub const SPR_FLIP_X: u8 = 1 << 4;
 pub const SPR_FLIP_Y: u8 = 1 << 5;
@@ -125,37 +125,61 @@ impl Default for MainState {
 pub const MAIN_CMATH_ENABLE: u8 = 1 << 0;
 pub const MAIN_BGCOL_WINDOW_ENABLE: u8 = 1 << 1;
 
-pub const BG_WIDTH_POWER: usize = 8;
-pub const BG_HEIGHT_POWER: usize = 9;
-pub const BG_WIDTH: usize = 1 << BG_WIDTH_POWER;
-pub const BG_HEIGHT: usize = 1 << BG_HEIGHT_POWER;
+pub const BG_WIDTH_POWER_MAX: usize = 8;
+pub const BG_WIDTH_POWER_MIN: usize = 3;
+pub const BG_HEIGHT_POWER_MAX: usize = 8;
+pub const BG_HEIGHT_POWER_MIN: usize = 3;
+pub const BG_WIDTH_MAX: usize = 1 << BG_WIDTH_POWER_MAX;
+pub const BG_WIDTH_MIN: usize = 1 << BG_WIDTH_POWER_MIN;
+pub const BG_HEIGHT_MAX: usize = 1 << BG_HEIGHT_POWER_MAX;
+pub const BG_HEIGHT_MIN: usize = 1 << BG_HEIGHT_POWER_MIN;
 
-pub const SPRITE_COUNT_LARGE: usize = 256;
-pub const SPRITE_COUNT_SMOL: usize = 32;
-pub const SPRITE_CACHE: usize = 16;
+pub const BG_WIDTH: usize = BG_WIDTH_MAX;
+pub const BG_HEIGHT: usize = BG_HEIGHT_MAX;
+
+pub const SPRITE_COUNT_POWER_MAX: usize = 8;
+pub const SPRITE_COUNT_POWER_MIN: usize = SPRITE_CACHE_POWER;
+pub const SPRITE_CACHE_POWER: usize = 4;
+pub const SPRITE_COUNT_MAX: usize = 1 << SPRITE_COUNT_POWER_MAX;
+pub const SPRITE_COUNT_MIN: usize = 1 << SPRITE_COUNT_POWER_MIN;
+pub const SPRITE_CACHE: usize = 1 << SPRITE_CACHE_POWER;
+
+pub const SPRITE_COUNT: usize = SPRITE_COUNT_MAX;
 
 pub type SpriteCache<'a> = [Option<&'a Sprite>; SPRITE_CACHE];
 
-pub const SPR_WIDTH_POWER: usize = 8;
-pub const SPR_HEIGHT_POWER: usize = 8;
-pub const SPR_WIDTH: usize = 1 << SPR_WIDTH_POWER;
-pub const SPR_HEIGHT: usize = 1 << SPR_HEIGHT_POWER;
+pub const SPR_WIDTH_POWER_MAX: usize = 8;
+pub const SPR_WIDTH_POWER_MIN: usize = 3;
+pub const SPR_HEIGHT_POWER_MAX: usize = 8;
+pub const SPR_HEIGHT_POWER_MIN: usize = 3;
+pub const SPR_WIDTH_MAX: usize = 1 << SPR_WIDTH_POWER_MAX;
+pub const SPR_WIDTH_MIN: usize = 1 << SPR_WIDTH_POWER_MIN;
+pub const SPR_HEIGHT_MAX: usize = 1 << SPR_HEIGHT_POWER_MAX;
+pub const SPR_HEIGHT_MIN: usize = 1 << SPR_HEIGHT_POWER_MIN;
 
-pub const MAP_WIDTH_POWER: usize = 6;
-pub const MAP_HEIGHT_POWER: usize = 6;
-pub const MAP_WIDTH: usize = 1 << MAP_WIDTH_POWER;
-pub const MAP_HEIGHT: usize = 1 << MAP_HEIGHT_POWER;
+pub const SPR_WIDTH: usize = SPR_WIDTH_MAX;
+pub const SPR_HEIGHT: usize = SPR_HEIGHT_MAX;
+
+pub const MAP_WIDTH_POWER_MAX: usize = 6;
+pub const MAP_WIDTH_POWER_MIN: usize = 3;
+pub const MAP_HEIGHT_POWER_MAX: usize = 6;
+pub const MAP_HEIGHT_POWER_MIN: usize = 3;
+pub const MAP_WIDTH_MAX: usize = 1 << MAP_WIDTH_POWER_MAX;
+pub const MAP_WIDTH_MIN: usize = 1 << MAP_WIDTH_POWER_MIN;
+pub const MAP_HEIGHT_MAX: usize = 1 << MAP_HEIGHT_POWER_MAX;
+pub const MAP_HEIGHT_MIN: usize = 1 << MAP_HEIGHT_POWER_MIN;
+
+pub const MAP_WIDTH: usize = MAP_WIDTH_MAX;
+pub const MAP_HEIGHT: usize = MAP_HEIGHT_MAX;
 
 type BackgroundPlaneInner = Box<[u16x8; (BG_WIDTH / 8) * BG_HEIGHT]>;
 type SpritePlaneInner = Box<[[u16x8; SPR_WIDTH / 8]; SPR_HEIGHT]>;
-type SpriteStateLargeInner = Box<[Sprite; SPRITE_COUNT_LARGE]>;
-type SpriteStateSmolInner = Box<[Sprite; SPRITE_COUNT_SMOL]>;
+type SpriteStateInner = Box<[Sprite; SPRITE_COUNT]>;
 type BackgroundMapInner = Box<[[u16; MAP_WIDTH]; MAP_HEIGHT]>;
 
 pub type BackgroundPlane = Rc<RwLock<BackgroundPlaneInner>>;
 pub type SpritePlane = Rc<RwLock<SpritePlaneInner>>;
-pub type SpriteStateLarge = Rc<RwLock<SpriteStateLargeInner>>;
-pub type SpriteStateSmol = Rc<RwLock<SpriteStateSmolInner>>;
+pub type SpriteState = Rc<RwLock<SpriteStateInner>>;
 pub type BackgroundMap = Rc<RwLock<BackgroundMapInner>>;
 
 #[must_use]
@@ -171,12 +195,7 @@ pub fn new_sprite_plane() -> SpritePlane {
 }
 
 #[must_use]
-pub fn new_sprite_state_large() -> SpriteStateLarge {
-    Rc::new(RwLock::new(Box::new([Sprite::default(); _])))
-}
-
-#[must_use]
-pub fn new_sprite_state_smol() -> SpriteStateSmol {
+pub fn new_sprite_state() -> SpriteState {
     Rc::new(RwLock::new(Box::new([Sprite::default(); _])))
 }
 
@@ -213,23 +232,6 @@ pub struct HDMAEntry {
 
 type HDMATableInner = [HDMAEntry; 240];
 pub type HDMATable = Rc<RwLock<HDMATableInner>>;
-
-pub enum SpriteState {
-    Smol(SpriteStateSmol),
-    Large(SpriteStateLarge),
-}
-
-impl Into<SpriteState> for SpriteStateLarge {
-    fn into(self) -> SpriteState {
-        SpriteState::Large(self)
-    }
-}
-
-impl Into<SpriteState> for SpriteStateSmol {
-    fn into(self) -> SpriteState {
-        SpriteState::Smol(self)
-    }
-}
 
 pub enum Command {
     BindMainState(MainState),
@@ -1045,8 +1047,7 @@ pub fn render(screen: &mut [[u16; 240]; 240], command_buffer: &CommandBuffer) {
     let mut this_background_plane: Option<RwLockReadGuard<BackgroundPlaneInner>> = None;
     let mut this_sprite_plane: Option<RwLockReadGuard<SpritePlaneInner>> = None;
     let mut this_background_map: Option<RwLockReadGuard<BackgroundMapInner>> = None;
-    let mut this_sprite_state_large: Option<RwLockReadGuard<SpriteStateLargeInner>> = None;
-    let mut this_sprite_state_smol: Option<RwLockReadGuard<SpriteStateSmolInner>> = None;
+    let mut this_sprite_state: Option<RwLockReadGuard<SpriteStateInner>> = None;
     for y in 0..240 {
         sprite_cache = [None; SPRITE_CACHE];
         window_1_cache = [mask16x8::default(); 240 / 8];
@@ -1072,16 +1073,7 @@ pub fn render(screen: &mut [[u16; 240]; 240], command_buffer: &CommandBuffer) {
                 },
                 Command::BindSpriteState(sprite_state) => {
                     sprite_cache = [None; SPRITE_CACHE];
-                    match sprite_state {
-                        SpriteState::Large(state) => {
-                            this_sprite_state_large = Some(state.read().unwrap());
-                            this_sprite_state_smol = None;
-                        },
-                        SpriteState::Smol(state) => {
-                            this_sprite_state_smol = Some(state.read().unwrap());
-                            this_sprite_state_large = None;
-                        },
-                    }
+                    this_sprite_state = Some(sprite_state.read().unwrap());
                 },
                 Command::ApplyHDMA(table) => {
                     command_apply_hdma(
@@ -1121,21 +1113,12 @@ pub fn render(screen: &mut [[u16; 240]; 240], command_buffer: &CommandBuffer) {
                     );
                 },
                 Command::DrawSprites(user_type) => {
-                    if this_sprite_state_large.is_some() {
-                        handle_sprite_cache(
-                            this_sprite_state_large.as_ref(),
-                            y,
-                            &mut sprite_cache,
-                            *user_type,
-                        );
-                    } else {
-                        handle_sprite_cache(
-                            this_sprite_state_smol.as_ref(),
-                            y,
-                            &mut sprite_cache,
-                            *user_type,
-                        );
-                    }
+                    handle_sprite_cache(
+                        this_sprite_state.as_ref(),
+                        y,
+                        &mut sprite_cache,
+                        *user_type,
+                    );
                     command_draw_sprites(
                         this_sprite_plane.as_ref(),
                         &sprite_cache,
