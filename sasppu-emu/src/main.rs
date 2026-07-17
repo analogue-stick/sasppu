@@ -53,7 +53,7 @@ fn main() {
     let mut cmath_state = CMathState::default();
     cmath_state.flags = CMATH_CMATH_ENABLE | CMATH_SUB_SUB_SCREEN;
 
-    let oam = new_sprite_state_smol();
+    let oam = new_sprite_state();
 
     for (i, spr) in oam
         .write()
@@ -176,7 +176,7 @@ fn main() {
                 Command::BindBackgroundPlane(background.clone()),
                 Command::BindBackgroundState(bg0_state),
                 Command::BindSpritePlane(sprites.clone()),
-                Command::BindSpriteState(oam.clone().into()),
+                Command::BindSpriteState(oam.clone()),
                 Command::UpdateWindows,
                 Command::BeginFrame,
                 Command::DrawBackground,

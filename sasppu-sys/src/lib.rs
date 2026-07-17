@@ -146,8 +146,6 @@ pub const SPRITE_CACHE: usize = 1 << SPRITE_CACHE_POWER;
 
 pub const SPRITE_COUNT: usize = SPRITE_COUNT_MAX;
 
-pub type SpriteCache<'a> = [Option<&'a Sprite>; SPRITE_CACHE];
-
 pub const SPR_WIDTH_POWER_MAX: usize = 8;
 pub const SPR_WIDTH_POWER_MIN: usize = 3;
 pub const SPR_HEIGHT_POWER_MAX: usize = 8;
@@ -171,6 +169,8 @@ pub const MAP_HEIGHT_MIN: usize = 1 << MAP_HEIGHT_POWER_MIN;
 
 pub const MAP_WIDTH: usize = MAP_WIDTH_MAX;
 pub const MAP_HEIGHT: usize = MAP_HEIGHT_MAX;
+
+pub type SpriteCache<'a> = [Option<&'a Sprite>; SPRITE_CACHE];
 
 type BackgroundPlaneInner = Box<[u16x8; (BG_WIDTH / 8) * BG_HEIGHT]>;
 type SpritePlaneInner = Box<[[u16x8; SPR_WIDTH / 8]; SPR_HEIGHT]>;
