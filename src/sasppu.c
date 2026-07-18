@@ -1,4 +1,5 @@
 #include "sasppu/sasppu.h"
+#include "assert.h"
 #include "sasppu/internal.h"
 #include "stdalign.h"
 #include "stdbool.h"
@@ -111,6 +112,348 @@ void free_background_plane(BackgroundPlane plane) { free(plane); }
 void free_sprite_plane(SpritePlane plane) { free(plane); }
 void free_sprite_state(SpriteState state) { free(state); }
 void free_background_map(BackgroundMap map) { free(map); }
+
+static inline void handle_background(uint16x8_t *const scanline, int16_t y) {
+  size_t y_pos =
+      (((size_t)(y + SASPPU_background_state->y)) >> 3) & ((MAP_HEIGHT)-1);
+  size_t x_pos =
+      (((size_t)(240 - 8 + SASPPU_background_state->x)) >> 3) & ((MAP_WIDTH)-1);
+  size_t offset_x = ((size_t)(SASPPU_background_state->x) & 0x7);
+  size_t offset_y = ((size_t)(y + SASPPU_background_state->y) & 0x7);
+
+#if USE_INLINE_ASM
+  asm volatile inline("wur.sar_byte %[offset_x]"
+                      :
+                      : [offset_x] "r"(offset_x << 1));
+#endif
+
+  uint16_t bg_map = SASPPU_background_map[y_pos * MAP_WIDTH + x_pos];
+
+  uint16x8_t *bg_1_p;
+
+  if ((bg_map & 0b10) > 0) {
+    bg_1_p = &SASPPU_background[(size_t)(bg_map >> 2) +
+                                ((7 - offset_y) * (BG_WIDTH >> 3))];
+  } else {
+    bg_1_p = &SASPPU_background[(size_t)(bg_map >> 2) +
+                                (offset_y * (BG_WIDTH >> 3))];
+  };
+
+#if USE_GCC_SIMD
+  uint16x8_t bg_1;
+  uint16x8_t bg_2;
+  uint16x8_t bg;
+#endif
+
+  if ((bg_map & 0b01) > 0) {
+#if USE_INLINE_ASM
+    asm volatile inline("                      \n\t \
+            ld.qr q1, %[bg_1_p], 0 \n\t \
+            ee.vzip.16 q0, q1      \n\t \
+            ee.vzip.16 q1, q0      \n\t \
+            ee.vzip.16 q0, q1      \n\t \
+            ee.vzip.16 q1, q0      \n\t \
+            "
+                        :
+                        : [bg_1_p] "r"(bg_1_p));
+#endif
+#if USE_GCC_SIMD
+    bg_1 = SHUFFLE_1(*bg_1_p, REVERSE_MASK);
+#endif
+#if VERIFY_INLINE_ASM
+    CHECK_SIMD_Q0(bg_1);
+#endif
+  } else {
+#if USE_INLINE_ASM
+    asm volatile inline("ld.qr q0, %[bg_1_p], 0" : : [bg_1_p] "r"(bg_1_p));
+#endif
+#if USE_GCC_SIMD
+    bg_1 = *bg_1_p;
+#endif
+#if VERIFY_INLINE_ASM
+    CHECK_SIMD_Q0(bg_1);
+#endif
+  }
+
+  ssize_t x = (240 / 8) - 1;
+  do {
+#if USE_INLINE_ASM
+    asm volatile inline("mv.qr q1, q0");
+#endif
+#if USE_GCC_SIMD
+    bg_2 = bg_1;
+#endif
+#if VERIFY_INLINE_ASM
+    CHECK_SIMD_Q1(bg_2);
+#endif
+    x_pos = (x_pos - 1) & ((MAP_WIDTH)-1);
+
+    bg_map = SASPPU_background_map[y_pos * MAP_WIDTH + x_pos];
+
+    if ((bg_map & 0b10) > 0) {
+      bg_1_p = &SASPPU_background[(size_t)(bg_map >> 2) +
+                                  ((7 - offset_y) * (BG_WIDTH >> 3))];
+    } else {
+      bg_1_p = &SASPPU_background[(size_t)(bg_map >> 2) +
+                                  (offset_y * (BG_WIDTH >> 3))];
+    };
+
+    if ((bg_map & 0b01) > 0) {
+#if USE_INLINE_ASM
+      asm volatile inline("                      \n\t \
+                ld.qr q2, %[bg_1_p], 0 \n\t \
+                ee.vzip.16 q0, q2      \n\t \
+                ee.vzip.16 q2, q0      \n\t \
+                ee.vzip.16 q0, q2      \n\t \
+                ee.vzip.16 q2, q0      \n\t \
+                "
+                          :
+                          : [bg_1_p] "r"(bg_1_p));
+#endif
+#if USE_GCC_SIMD
+      bg_1 = SHUFFLE_1(*bg_1_p, REVERSE_MASK);
+#endif
+#if VERIFY_INLINE_ASM
+      CHECK_SIMD_Q0(bg_1);
+#endif
+    } else {
+#if USE_INLINE_ASM
+      asm volatile inline("ld.qr q0, %[bg_1_p], 0" : : [bg_1_p] "r"(bg_1_p));
+#endif
+#if USE_GCC_SIMD
+      bg_1 = *bg_1_p;
+#endif
+#if VERIFY_INLINE_ASM
+      CHECK_SIMD_Q0(bg_1);
+#endif
+    }
+
+#if USE_INLINE_ASM
+    asm volatile inline("                                           \n\t \
+            mv.qr q2, q0                                \n\t \
+            ee.src.q.ld.ip q3, %[cmath_bit], 0, q2, q1     \n\t \
+            "
+                        :
+                        : [cmath_bit] "r"(&CMATH_BIT));
+#endif
+#if USE_GCC_SIMD
+    bg = SHUFFLE_2(bg_1, bg_2, VECTOR_SHUFFLES[offset_x]);
+#endif
+#if VERIFY_INLINE_ASM
+    CHECK_SIMD_Q2(bg);
+#endif
+
+    if ((SASPPU_background_state.flags & BG_C_MATH) > 0) {
+#if USE_INLINE_ASM
+      asm volatile inline("ee.orq q2, q2, q3");
+#endif
+#if USE_GCC_SIMD
+      bg |= CMATH_BIT;
+#endif
+#if VERIFY_INLINE_ASM
+      CHECK_SIMD_Q2(bg);
+#endif
+    }
+
+    HANDLE_WINDOW_LOOKUP[SASPPU_background_state.windows]
+#if USE_INLINE_ASM
+        (scanline, x);
+#else
+        (scanline, x, bg);
+#endif
+  } while ((--x) >= 0);
+}
+
+static void IDENT(uint16x8_t *const scanline, int16_t y) {
+  mask16x8_t *window_index = &SASPPU_window_cache[((240 / 8) * 2) - 1];
+#if USE_INLINE_ASM
+  asm volatile inline(
+      "                                                               \n\t \
+                 ld.qr q0, %[vector_increments], 0 /* x_window */                \n\t \
+                 ee.vldbc.16.ip q4, %[main_state], 2 /* load window_1_left */    \n\t \
+                 ee.vldbc.16.ip q5, %[main_state], 2 /* load window_1_right */   \n\t \
+                 ee.vldbc.16.ip q6, %[main_state], 2 /* load window_2_left  */   \n\t \
+                 ee.vldbc.16.ip q7, %[main_state], 2 /* load window_2_right */  \n\t \
+                 "
+      :
+      : [vector_increments] "r"(&VECTOR_INCREMENTS_END),
+        [main_state] "r"(&SASPPU_main_state.window_1_left));
+
+  do {
+    asm volatile inline(
+        "                                                               \n\t \
+                     /* Calculate window 2 */                                        \n\t \
+                     ee.vcmp.eq.s16 q1, q0, q6                                       \n\t \
+                     ee.vcmp.gt.s16 q2, q0, q6                                       \n\t \
+                     ee.orq q1, q1, q2                                               \n\t \
+                     ee.vcmp.eq.s16 q2, q0, q7                                       \n\t \
+                     ee.vcmp.lt.s16 q3, q0, q7                                       \n\t \
+                     ee.orq q2, q2, q3                                               \n\t \
+                     ee.andq q1, q1, q2                                              \n\t \
+                     ee.vst.128.ip q1, %[window_index], -16                          \n\t \
+                                                                                     \n\t \
+                     /* Calculate window 1 */                                        \n\t \
+                     ee.vcmp.eq.s16 q1, q0, q4                                       \n\t \
+                     ee.vcmp.gt.s16 q2, q0, q4                                       \n\t \
+                     ee.orq q1, q1, q2                                               \n\t \
+                     ee.vcmp.eq.s16 q2, q0, q5                                       \n\t \
+                     ee.vcmp.lt.s16 q3, q0, q5                                       \n\t \
+                     ee.orq q2, q2, q3                                               \n\t \
+                     ee.andq q1, q1, q2                                              \n\t \
+                     ee.vst.128.ip q1, %[window_index], -16                          \n\t \
+                                                                                     \n\t \
+                     /* Jump down 8 pixels */                                        \n\t \
+                     ee.vldbc.16.ip q2, %[eight], 0                                  \n\t \
+                     ee.vsubs.s16 q0, q0, q2                                         \n\t \
+                     "
+        : [window_index] "+r"(window_index)
+        : [eight] "r"(&SASPPU_EIGHT));
+  } while (window_index >= SASPPU_window_cache);
+#else
+  uint16x8_t x_window = VECTOR_INCREMENTS_END;
+  uint16x8_t window_1_left = VBROADCAST(SASPPU_main_state.window_1_left);
+  uint16x8_t window_1_right = VBROADCAST(SASPPU_main_state.window_1_right);
+  uint16x8_t window_2_left = VBROADCAST(SASPPU_main_state.window_2_left);
+  uint16x8_t window_2_right = VBROADCAST(SASPPU_main_state.window_2_right);
+  do {
+    /* Calculate window 2 */
+    *(window_index--) =
+        (x_window >= window_2_left) & (x_window <= window_2_right);
+
+    /* Calculate window 1 */
+    *(window_index--) =
+        (x_window >= window_1_left) & (x_window <= window_1_right);
+
+    /* Jump down 8 pixels */
+    x_window -= 8;
+  } while (window_index > SASPPU_window_cache);
+#endif
+#if VERIFY_INLINE_ASM
+  {
+    size_t x = 0;
+    do {
+      if ((x >= SASPPU_main_state.window_1_left) &
+          (x <= SASPPU_main_state.window_1_right)) {
+        assert(SASPPU_window_cache[((x >> 3) * 2) + 0][x & 0x7] == 0xFFFF);
+      } else {
+        assert(SASPPU_window_cache[((x >> 3) * 2) + 0][x & 0x7] == 0);
+      }
+      if ((x >= SASPPU_main_state.window_2_left) &
+          (x <= SASPPU_main_state.window_2_right)) {
+        assert(SASPPU_window_cache[((x >> 3) * 2) + 1][x & 0x7] == 0xFFFF);
+      } else {
+        assert(SASPPU_window_cache[((x >> 3) * 2) + 1][x & 0x7] == 0);
+      }
+    } while ((++x) < 240);
+  }
+#endif
+
+#if BGCOL_ENABLE
+  HandleWindowType main_win =
+      HANDLE_WINDOW_LOOKUP[SASPPU_main_state.bgcol_windows & 0x0F];
+  HandleWindowType sub_win =
+      HANDLE_WINDOW_LOOKUP[SASPPU_main_state.bgcol_windows & 0xF0];
+#if USE_INLINE_ASM
+  asm volatile inline("ee.zero.q q3");
+#endif
+#endif
+
+#if USE_INLINE_ASM
+  asm volatile inline(
+      "                                                                \n\t \
+        ee.vldbc.16.ip q0, %[main_state], 2 /* load mainscreen_colour */ \n\t \
+        ee.vldbc.16.ip q1, %[main_state], 2 /* load subscreen_colour */  \n\t \
+        "
+      :
+      : [main_state] "r"(&SASPPU_main_state.mainscreen_colour));
+#else
+#if BGCOL_ENABLE
+  static const uint16x8_t zero = VBROADCAST(0);
+#endif
+  uint16x8_t vsubcol = VBROADCAST(SASPPU_main_state.subscreen_colour);
+  uint16x8_t vmaincol = VBROADCAST(SASPPU_main_state.mainscreen_colour);
+#endif
+
+  uint16x8_t *maincol = &scanline[(240 / 8) - 1];
+  uint16x8_t *subcol = &SASPPU_subscreen_scanline[(240 / 8) - 1];
+
+  ssize_t x = (240 / 8) - 1;
+  do {
+#if BGCOL_ENABLE
+#if USE_INLINE_ASM
+    asm volatile inline("                                   \n\t \
+            ee.vst.128.ip q3, %[subcol], -16    \n\t \
+            mv.qr q2, q1                        \n\t \
+            "
+                        : [subcol] "+r"(subcol));
+    sub_win(scanline, x);
+    asm volatile inline("                                   \n\t \
+            ee.vst.128.ip q3, %[maincol], -16   \n\t \
+            mv.qr q2, q0                        \n\t \
+            "
+                        : [maincol] "+r"(maincol));
+    main_win(scanline, x);
+#else
+    *(maincol--) = zero;
+    sub_win(scanline, x, vsubcol);
+    *(subcol--) = zero;
+    main_win(scanline, x, vmaincol);
+#endif
+#else
+#if USE_INLINE_ASM
+    asm volatile inline("                                   \n\t \
+            ee.vst.128.ip q0, %[maincol], -16   \n\t \
+            ee.vst.128.ip q1, %[subcol], -16    \n\t \
+            "
+                        : [subcol] "+r"(subcol), [maincol] "+r"(maincol)
+                        :);
+#else
+    *(maincol--) = vmaincol;
+    *(subcol--) = vsubcol;
+#endif
+#endif
+  } while ((--x) >= 0);
+
+#if BG0_ENABLE
+  handle_bg0(scanline, y);
+#endif
+
+#if SPR0_ENABLE
+  {
+    Sprite *const *spr = &SASPPU_sprite_cache[0][SPRITE_CACHE - 1];
+    do {
+      Sprite *const sprite = *spr;
+      if (!sprite) {
+        continue;
+      }
+      HANDLE_SPRITE_LOOKUP[sprite->flags >> 2](scanline, y, sprite);
+    } while ((--spr) >= &SASPPU_sprite_cache[0][0]);
+  }
+#endif
+
+#if BG1_ENABLE
+  handle_bg1(scanline, y);
+#endif
+
+#if SPR1_ENABLE
+  {
+    Sprite *const *spr = &SASPPU_sprite_cache[1][SPRITE_CACHE - 1];
+    do {
+      Sprite *const sprite = *spr;
+      if (!sprite) {
+        continue;
+      }
+      HANDLE_SPRITE_LOOKUP[sprite->flags >> 2](scanline, y, sprite);
+    } while ((--spr) >= &SASPPU_sprite_cache[1][0]);
+  }
+#endif
+
+#if CMATH_ENABLE
+  return HANDLE_CMATH_LOOKUP[SASPPU_cmath_state.flags](scanline);
+#else
+  return HANDLE_CMATH_LOOKUP[0](scanline);
+#endif
+}
 
 static inline void SASPPU_handle_hdma(HDMATable &table, uint8_t y) {
   HDMAEntry *entry = &table[y];
