@@ -22,6 +22,9 @@
 // #define SASPPU_VERSION
 // "SASPPU_VERSION_MAJOR.SASPPU_VERSION_MINOR.SASPPU_VERSION_PATCH"
 
+#define SCREEN_WIDTH (240)
+#define SCREEN_HEIGHT (240)
+
 #define WINDOW_A (0b0001)
 #define WINDOW_B (0b0010)
 #define WINDOW_AB (0b0100)
@@ -145,12 +148,17 @@ void alloc_sprite_plane(SpritePlane &plane);
 void alloc_sprite_state(SpriteState &state);
 void alloc_background_map(BackgroundMap &map);
 
+void calloc_background_plane(BackgroundPlane &plane);
+void calloc_sprite_plane(SpritePlane &plane);
+void calloc_sprite_state(SpriteState &state);
+void calloc_background_map(BackgroundMap &map);
+
 void free_background_plane(BackgroundPlane plane);
 void free_sprite_plane(SpritePlane plane);
 void free_sprite_state(SpriteState state);
 void free_background_map(BackgroundMap map);
 
-#define HDMA_LEN (240)
+#define HDMA_LEN SCREEN_HEIGHT
 
 #if __STDC_VERSION__ >= 202000
 typedef enum : uint16_t

@@ -1,8 +1,10 @@
 #include "sasppu/sasppu.h"
 #include "sasppu/internal.h"
+#include "stdalign.h"
 #include "stdbool.h"
 #include "stddef.h"
 #include "stdint.h"
+#include "stdlib.h"
 
 #include "sasppu/gen.h"
 
@@ -13,25 +15,17 @@
 #define EXT_RAM_BSS_ATTR
 #endif
 
-MainState SASPPU_main_state;
-Background SASPPU_bg0_state;
-Background SASPPU_bg1_state;
-CMathState SASPPU_cmath_state;
-uint8_t SASPPU_hdma_enable;
-
-Sprite SASPPU_oam[SPRITE_COUNT];
-uint16_t SASPPU_bg0[MAP_WIDTH * MAP_HEIGHT];
-uint16_t SASPPU_bg1[MAP_WIDTH * MAP_HEIGHT];
-
-EXT_RAM_BSS_ATTR uint16x8_t SASPPU_background[BG_WIDTH * BG_HEIGHT / 8];
-EXT_RAM_BSS_ATTR uint16x8_t SASPPU_sprites[SPR_WIDTH * SPR_HEIGHT / 8];
-
-Sprite *SASPPU_sprite_cache[2][SPRITE_CACHE];
-
-uint16x8_t SASPPU_subscreen_scanline[240 / 8];
+uint16x8_t SASPPU_sub_screen[240 / 8];
+SpriteCache SASPPU_sprite_cache;
 mask16x8_t SASPPU_window_cache[(240 / 8) * 2];
 
-EXT_RAM_BSS_ATTR HDMAEntry SASPPU_hdma_tables[SASPPU_HDMA_TABLE_COUNT][240];
+MainState SASPPU_main_state;
+CMathState SASPPU_cmath_state;
+BackgroundState SASPPU_background_state;
+BackgroundPlane SASPPU_background_plane;
+SpritePlane SASPPU_sprite_plane;
+BackgroundMap SASPPU_background_map;
+SpriteState SASPPU_sprite_state;
 
 bool SASPPU_forced_blank;
 static bool already_blanked[4] = {false, false, false, false};
@@ -71,88 +65,110 @@ const uint16x8_t VECTOR_SHUFFLES[9] = {
 };
 #endif
 
-static inline void SASPPU_handle_hdma(uint8_t y) {
-  size_t table = 0;
-  do {
-    if (((SASPPU_hdma_enable >> table) & 1) == 0) {
-      continue;
-    }
-
-    HDMAEntry *entry = &SASPPU_hdma_tables[table][y];
-
-    switch (entry->command) {
-    case HDMA_NOOP:
-    default:
-      break;
-    case HDMA_DISABLE: {
-      SASPPU_hdma_enable &= ~(1 << table);
-    } break;
-    case HDMA_MAIN_STATE_MAINSCREEN_COLOUR: {
-      SASPPU_main_state.mainscreen_colour = (uint16_t)(entry->value);
-    } break;
-    case HDMA_MAIN_STATE_SUBSCREEN_COLOUR: {
-      SASPPU_main_state.subscreen_colour = (uint16_t)(entry->value);
-    } break;
-    case HDMA_MAIN_STATE_WINDOW1_LEFT: {
-      SASPPU_main_state.window_1_left = (int16_t)(entry->value);
-    } break;
-    case HDMA_MAIN_STATE_WINDOW1_RIGHT: {
-      SASPPU_main_state.window_1_right = (int16_t)(entry->value);
-    } break;
-    case HDMA_MAIN_STATE_WINDOW2_LEFT: {
-      SASPPU_main_state.window_2_left = (int16_t)(entry->value);
-    } break;
-    case HDMA_MAIN_STATE_WINDOW2_RIGHT: {
-      SASPPU_main_state.window_2_right = (int16_t)(entry->value);
-    } break;
-    case HDMA_MAIN_STATE_BGCOL_WINDOWS: {
-      SASPPU_main_state.bgcol_windows = (uint8_t)(entry->value);
-    } break;
-    case HDMA_MAIN_STATE_FLAGS: {
-      SASPPU_main_state.flags = (uint8_t)(entry->value);
-    } break;
-    case HDMA_CMATH_STATE_SCREEN_FADE: {
-      SASPPU_cmath_state.screen_fade = (uint16_t)(entry->value);
-    } break;
-    case HDMA_CMATH_STATE_FLAGS: {
-      SASPPU_cmath_state.flags = (uint8_t)(entry->value);
-    } break;
-    case HDMA_BACKGROUND0_X: {
-      SASPPU_bg0_state.x = (int16_t)(entry->value);
-    } break;
-    case HDMA_BACKGROUND0_Y: {
-      SASPPU_bg0_state.y = (int16_t)(entry->value);
-    } break;
-    case HDMA_BACKGROUND0_WINDOWS: {
-      SASPPU_bg0_state.windows = (uint8_t)(entry->value);
-    } break;
-    case HDMA_BACKGROUND0_FLAGS: {
-      SASPPU_bg0_state.flags = (uint8_t)(entry->value);
-    } break;
-    case HDMA_BACKGROUND1_X: {
-      SASPPU_bg1_state.x = (int16_t)(entry->value);
-    } break;
-    case HDMA_BACKGROUND1_Y: {
-      SASPPU_bg1_state.y = (int16_t)(entry->value);
-    } break;
-    case HDMA_BACKGROUND1_WINDOWS: {
-      SASPPU_bg1_state.windows = (uint8_t)(entry->value);
-    } break;
-    case HDMA_BACKGROUND1_FLAGS: {
-      SASPPU_bg1_state.flags = (uint8_t)(entry->value);
-    } break;
-    case HDMA_HDMA_ENABLE: {
-      SASPPU_hdma_enable = (uint8_t)(entry->value);
-    } break;
-    }
-  } while ((++table) < SASPPU_HDMA_TABLE_COUNT);
+void alloc_background_plane(BackgroundPlane &plane) {
+  plane = (BackgroundPlane)(aligned_alloc(
+      alignof(uint16x8_t), (BG_WIDTH * BG_HEIGHT / 8) * sizeof(uint16x8_t)));
+}
+void alloc_sprite_plane(SpritePlane &plane) {
+  plane = (SpritePlane)(aligned_alloc(
+      alignof(uint16x8_t), (SPR_WIDTH * SPR_HEIGHT / 8) * sizeof(uint16x8_t)));
+}
+void alloc_sprite_state(SpriteState &state) {
+  plane = (BackgroundPlane)(aligned_alloc(alignof(Sprite),
+                                          SPRITE_COUNT * sizeof(Sprite)));
+}
+void alloc_background_map(BackgroundMap &map) {
+  plane = (BackgroundPlane)(aligned_alloc(
+      alignof(uint16_t), (MAP_WIDTH * MAP_HEIGHT) * sizeof(uint16_t)));
 }
 
-static inline void SASPPU_handle_sprite_cache(uint8_t y) {
-  uint32_t sprites_indcies[2] = {0, 0};
+void calloc_background_plane(BackgroundPlane &plane) {
+  alloc_background_plane(plane);
+  if (plane) {
+    memset(plane, 0, (BG_WIDTH * BG_HEIGHT / 8) * sizeof(uint16x8_t));
+  }
+}
+void calloc_sprite_plane(SpritePlane &plane) {
+  alloc_sprite_plane(plane);
+  if (plane) {
+    memset(plane, 0, (SPR_WIDTH * SPR_HEIGHT / 8) * sizeof(uint16x8_t));
+  }
+}
+void calloc_sprite_state(SpriteState &state) {
+  alloc_sprite_state(state);
+  if (state) {
+    memset(plane, 0, SPRITE_COUNT * sizeof(Sprite));
+  }
+}
+void calloc_background_map(BackgroundMap &map) {
+  alloc_background_map(map);
+  if (map) {
+    memset(plane, 0, (MAP_WIDTH * MAP_HEIGHT) * sizeof(uint16_t));
+  }
+}
+
+void free_background_plane(BackgroundPlane plane) { free(plane); }
+void free_sprite_plane(SpritePlane plane) { free(plane); }
+void free_sprite_state(SpriteState state) { free(state); }
+void free_background_map(BackgroundMap map) { free(map); }
+
+static inline void SASPPU_handle_hdma(HDMATable &table, uint8_t y) {
+  HDMAEntry *entry = &table[y];
+
+  switch (entry->command) {
+  case HDMA_NOOP:
+  default:
+    break;
+  case HDMA_MAIN_STATE_MAINSCREEN_COLOUR: {
+    SASPPU_main_state.mainscreen_colour = (uint16_t)(entry->value);
+  } break;
+  case HDMA_MAIN_STATE_SUBSCREEN_COLOUR: {
+    SASPPU_main_state.subscreen_colour = (uint16_t)(entry->value);
+  } break;
+  case HDMA_MAIN_STATE_WINDOW1_LEFT: {
+    SASPPU_main_state.window_1_left = (int16_t)(entry->value);
+  } break;
+  case HDMA_MAIN_STATE_WINDOW1_RIGHT: {
+    SASPPU_main_state.window_1_right = (int16_t)(entry->value);
+  } break;
+  case HDMA_MAIN_STATE_WINDOW2_LEFT: {
+    SASPPU_main_state.window_2_left = (int16_t)(entry->value);
+  } break;
+  case HDMA_MAIN_STATE_WINDOW2_RIGHT: {
+    SASPPU_main_state.window_2_right = (int16_t)(entry->value);
+  } break;
+  case HDMA_MAIN_STATE_BGCOL_WINDOWS: {
+    SASPPU_main_state.bgcol_windows = (uint8_t)(entry->value);
+  } break;
+  case HDMA_MAIN_STATE_FLAGS: {
+    SASPPU_main_state.flags = (uint8_t)(entry->value);
+  } break;
+  case HDMA_CMATH_STATE_SCREEN_FADE: {
+    SASPPU_cmath_state.screen_fade = (uint16_t)(entry->value);
+  } break;
+  case HDMA_CMATH_STATE_FLAGS: {
+    SASPPU_cmath_state.flags = (uint8_t)(entry->value);
+  } break;
+  case HDMA_BACKGROUND_X: {
+    SASPPU_background_state.x = (int16_t)(entry->value);
+  } break;
+  case HDMA_BACKGROUND_Y: {
+    SASPPU_background_state.y = (int16_t)(entry->value);
+  } break;
+  case HDMA_BACKGROUND_WINDOWS: {
+    SASPPU_background_state.windows = (uint8_t)(entry->value);
+  } break;
+  case HDMA_BACKGROUND_FLAGS: {
+    SASPPU_background_state.flags = (uint8_t)(entry->value);
+  } break;
+  }
+}
+
+static inline void SASPPU_handle_sprite_cache(uint8_t y, uint8_t user_type) {
+  uint32_t sprites_index = 0;
   size_t i = 0;
   do {
-    Sprite *spr = &SASPPU_oam[i];
+    Sprite *spr = &SASPPU_sprite_state[i];
     uint8_t flags = spr->flags;
     uint8_t windows = spr->windows;
     int16_t iy = (int16_t)y;
@@ -164,20 +180,24 @@ static inline void SASPPU_handle_sprite_cache(uint8_t y) {
     bool sub_screen_enable = (windows & 0xF0) > 0;
 
     bool enabled = (flags & SPR_ENABLED) > 0;
-    bool priority = (flags & SPR_PRIORITY) > 0;
     // bool flip_x = (flags & SPR_FLIP_X) > 0;
     // bool flip_y = (flags & SPR_FLIP_Y) > 0;
     // bool cmath_enabled = (flags & SPR_C_MATH) > 0;
     bool double_enabled = (flags & SPR_DOUBLE) > 0;
+    uint8_t sprite_user_type = flags & SPR_USER_TYPE;
 
     // If not enabled, skip
     if (!enabled) {
       continue;
     }
 
+    // If user type does not match, skip
+    if (sprite_user_type != user_type) {
+      continue;
+    }
+
     // If we've hit the limit, skip
-    if ((priority && (sprites_indcies[1] == SPRITE_CACHE)) ||
-        (!priority && (sprites_indcies[0] == SPRITE_CACHE))) {
+    if (sprites_index == SPRITE_CACHE) {
       continue;
     }
 
@@ -185,32 +205,24 @@ static inline void SASPPU_handle_sprite_cache(uint8_t y) {
     bool top_border = spr->y <= iy;
     bool bottom_border = double_enabled ? (spr->y > (iy - (spr_height << 1)))
                                         : (spr->y > (iy - (spr_height)));
-    bool right_border = spr->x < 240;
+    bool right_border = spr->x < SCREEN_WIDTH;
     bool left_border =
         double_enabled ? (spr->x > -(spr_width << 1)) : (spr->x > -(spr_width));
 
     if (window_enabled && top_border && bottom_border && right_border &&
         left_border) {
-      if (priority) {
-        SASPPU_sprite_cache[1][sprites_indcies[1]] = spr;
-        sprites_indcies[1] += 1;
-      } else {
-        SASPPU_sprite_cache[0][sprites_indcies[0]] = spr;
-        sprites_indcies[0] += 1;
-      }
+      SASPPU_sprite_cache[sprites_index] = spr;
+      sprites_index += 1;
 
-      if ((sprites_indcies[1] == SPRITE_CACHE) &&
-          (sprites_indcies[0] == SPRITE_CACHE)) {
+      if (sprites_index == SPRITE_CACHE) {
         break;
       }
     }
   } while ((++i) < SPRITE_COUNT);
-  do {
-    SASPPU_sprite_cache[0][sprites_indcies[0]] = NULL;
-  } while ((++sprites_indcies[0]) < SPRITE_CACHE);
-  do {
-    SASPPU_sprite_cache[1][sprites_indcies[1]] = NULL;
-  } while ((++sprites_indcies[1]) < SPRITE_CACHE);
+  while (sprite_index < SPRITE_CACHE) {
+    SASPPU_sprite_cache[sprites_index] = NULL;
+    sprites_index += 1;
+  };
 }
 
 void SASPPU_render(uint16x8_t *fb, uint8_t section,
