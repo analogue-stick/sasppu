@@ -355,7 +355,7 @@ fn swimzleoo(a: u16x8, b: u16x8, offset: usize) -> u16x8 {
 }
 
 #[inline]
-fn handle_bg(
+fn handle_background(
     state: BackgroundState,                    // a9
     map: &RwLockReadGuard<BackgroundMapInner>, // a10
     graphics: &RwLockReadGuard<BackgroundPlaneInner>,
@@ -817,7 +817,7 @@ fn command_draw_background(
         && let Some(background_map) = background_map
         && let Some(background_plane) = background_plane
     {
-        handle_bg(
+        handle_background(
             *background_state,
             background_map,
             background_plane,
@@ -1136,6 +1136,7 @@ pub fn render(screen: &mut [[u16; 240]; 240], command_buffer: &CommandBuffer) {
                         &mut main_screen,
                         &mut sub_screen,
                     );
+                    break;
                 },
             }
         }

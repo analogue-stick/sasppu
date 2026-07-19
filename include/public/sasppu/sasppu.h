@@ -143,20 +143,20 @@ typedef uint16x8_t *SpritePlane;     // [SPR_WIDTH * SPR_HEIGHT / 8];
 typedef Sprite *SpriteState;         // [SPRITE_COUNT];
 typedef uint16_t *BackgroundMap;     // [MAP_WIDTH * MAP_HEIGHT];
 
-void alloc_background_plane(BackgroundPlane &plane);
-void alloc_sprite_plane(SpritePlane &plane);
-void alloc_sprite_state(SpriteState &state);
-void alloc_background_map(BackgroundMap &map);
+void SASPPU_alloc_background_plane(BackgroundPlane &plane);
+void SASPPU_alloc_sprite_plane(SpritePlane &plane);
+void SASPPU_alloc_sprite_state(SpriteState &state);
+void SASPPU_alloc_background_map(BackgroundMap &map);
 
-void calloc_background_plane(BackgroundPlane &plane);
-void calloc_sprite_plane(SpritePlane &plane);
-void calloc_sprite_state(SpriteState &state);
-void calloc_background_map(BackgroundMap &map);
+void SASPPU_calloc_background_plane(BackgroundPlane &plane);
+void SASPPU_calloc_sprite_plane(SpritePlane &plane);
+void SASPPU_calloc_sprite_state(SpriteState &state);
+void SASPPU_calloc_background_map(BackgroundMap &map);
 
-void free_background_plane(BackgroundPlane plane);
-void free_sprite_plane(SpritePlane plane);
-void free_sprite_state(SpriteState state);
-void free_background_map(BackgroundMap map);
+void SASPPU_free_background_plane(BackgroundPlane plane);
+void SASPPU_free_sprite_plane(SpritePlane plane);
+void SASPPU_free_sprite_state(SpriteState state);
+void SASPPU_free_background_map(BackgroundMap map);
 
 #define HDMA_LEN SCREEN_HEIGHT
 
@@ -221,6 +221,7 @@ typedef struct {
 
 extern bool SASPPU_forced_blank;
 
-void SASPPU_render(uint16x8_t *fb, uint8_t section);
+void SASPPU_render(uint16x8_t *fb, uint8_t section,
+                   CommandBuffer &command_buffer);
 
 #endif // SASPPU_SASPPU_H_
