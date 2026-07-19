@@ -30,7 +30,7 @@ static void IDENT(uint16x8_t *const scanline, const int16_t y, Sprite *const spr
 
     size_t offset = (size_t)(8 - (sprite->x & 0x7));
 
-#if QEMU_EMULATOR
+#if SASPPU_QEMU_EMULATOR
     offset = offset & 0x7;
 #endif
 
