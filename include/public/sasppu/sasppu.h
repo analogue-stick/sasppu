@@ -42,17 +42,14 @@ typedef struct {
   uint8_t flags;
 } Sprite;
 
-#define DEFAULT_SPRITE                                                         \
-  Sprite{                                                                      \
-    x : 0,                                                                     \
-    y : 0,                                                                     \
-    width : 8,                                                                 \
-    height : 8,                                                                \
-    graphics_x : 0,                                                            \
-    graphics_y : 0,                                                            \
-    windows : 0xFF,                                                            \
-    flags : 0                                                                  \
-  }
+static const Sprite DEFAULT_SPRITE = {.x = 0,
+                                      .y = 0,
+                                      .width = 8,
+                                      .height = 8,
+                                      .graphics_x = 0,
+                                      .graphics_y = 0,
+                                      .windows = 0xFF,
+                                      .flags = 0};
 
 #define SPR_USER_TYPE (7)
 #define SPR_ENABLED (1 << 3)
@@ -68,8 +65,8 @@ typedef struct {
   uint8_t flags;
 } BackgroundState;
 
-#define DEFAULT_BACKGROUND_STATE                                               \
-  BackgroundState{scroll_x : 0, scroll_y : 0, windows : 0xFF, flags : 0}
+static const BackgroundState DEFAULT_BACKGROUND_STATE = {
+    .scroll_x = 0, .scroll_y = 0, .windows = 0xFF, .flags = 0};
 
 #define BG_C_MATH (1 << 0)
 
@@ -78,7 +75,7 @@ typedef struct {
   uint8_t flags;
 } CMathState;
 
-#define DEFAULT_CMATH_STATE CMathState{screen_fade : 0, flags : 0}
+static const CMathState DEFAULT_CMATH_STATE = {.screen_fade = 0, .flags = 0};
 
 #define CMATH_HALF_MAIN_SCREEN (1 << 0)
 #define CMATH_DOUBLE_MAIN_SCREEN (1 << 1)
@@ -103,13 +100,16 @@ typedef struct {
   uint8_t flags;
 } MainState;
 
-#define DEFAULT_MAIN_STATE                                                     \
-  MainState {                                                                  \
-  mainscreen_colour:                                                           \
-    0, subscreen_colour : 0, window_1_left : 0, window_1_right : 255,          \
-        window_2_left : 0, window_2_right : 255, bgcol_windows : 0xFF,         \
-        flags : 0,                                                             \
-  }
+static const MainState DEFAULT_MAIN_STATE = {
+    .mainscreen_colour = 0,
+    .subscreen_colour = 0,
+    .window_1_left = 0,
+    .window_1_right = 255,
+    .window_2_left = 0,
+    .window_2_right = 255,
+    .bgcol_windows = 0xFF,
+    .flags = 0,
+};
 
 #define MAIN_CMATH_ENABLE (1 << 0)
 #define MAIN_BGCOL_WINDOW_ENABLE (1 << 1)
@@ -143,15 +143,15 @@ typedef uint16x8_t *SpritePlane;     // [SPR_WIDTH * SPR_HEIGHT / 8];
 typedef Sprite *SpriteState;         // [SPRITE_COUNT];
 typedef uint16_t *BackgroundMap;     // [MAP_WIDTH * MAP_HEIGHT];
 
-void SASPPU_alloc_background_plane(BackgroundPlane &plane);
-void SASPPU_alloc_sprite_plane(SpritePlane &plane);
-void SASPPU_alloc_sprite_state(SpriteState &state);
-void SASPPU_alloc_background_map(BackgroundMap &map);
+void SASPPU_alloc_background_plane(BackgroundPlane *plane);
+void SASPPU_alloc_sprite_plane(SpritePlane *plane);
+void SASPPU_alloc_sprite_state(SpriteState *state);
+void SASPPU_alloc_background_map(BackgroundMap *map);
 
-void SASPPU_calloc_background_plane(BackgroundPlane &plane);
-void SASPPU_calloc_sprite_plane(SpritePlane &plane);
-void SASPPU_calloc_sprite_state(SpriteState &state);
-void SASPPU_calloc_background_map(BackgroundMap &map);
+void SASPPU_calloc_background_plane(BackgroundPlane *plane);
+void SASPPU_calloc_sprite_plane(SpritePlane *plane);
+void SASPPU_calloc_sprite_state(SpriteState *state);
+void SASPPU_calloc_background_map(BackgroundMap *map);
 
 void SASPPU_free_background_plane(BackgroundPlane plane);
 void SASPPU_free_sprite_plane(SpritePlane plane);
@@ -188,7 +188,7 @@ typedef struct {
   uint16_t value;
 } HDMAEntry;
 
-typedef HDMAEntry HdmaTable[HDMA_LEN];
+typedef HDMAEntry HDMATable[HDMA_LEN];
 
 #if __STDC_VERSION__ >= 202000
 typedef enum : uint16_t
@@ -222,6 +222,6 @@ typedef struct {
 extern bool SASPPU_forced_blank;
 
 void SASPPU_render(uint16x8_t *fb, uint8_t section,
-                   CommandBuffer &command_buffer);
+                   CommandBuffer *command_buffer);
 
 #endif // SASPPU_SASPPU_H_

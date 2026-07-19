@@ -67,45 +67,45 @@ const uint16x8_t VECTOR_SHUFFLES[9] = {
 };
 #endif
 
-void SASSPU_alloc_background_plane(BackgroundPlane &plane) {
-  plane = (BackgroundPlane)(aligned_alloc(
+void SASSPU_alloc_background_plane(BackgroundPlane *plane) {
+  *plane = (BackgroundPlane)(aligned_alloc(
       alignof(uint16x8_t), (BG_WIDTH * BG_HEIGHT / 8) * sizeof(uint16x8_t)));
 }
-void SASSPU_alloc_sprite_plane(SpritePlane &plane) {
-  plane = (SpritePlane)(aligned_alloc(
+void SASSPU_alloc_sprite_plane(SpritePlane *plane) {
+  *plane = (SpritePlane)(aligned_alloc(
       alignof(uint16x8_t), (SPR_WIDTH * SPR_HEIGHT / 8) * sizeof(uint16x8_t)));
 }
-void SASSPU_alloc_sprite_state(SpriteState &state) {
-  plane = (BackgroundPlane)(aligned_alloc(alignof(Sprite),
-                                          SPRITE_COUNT * sizeof(Sprite)));
+void SASSPU_alloc_sprite_state(SpriteState *state) {
+  *state = (SpriteState)(aligned_alloc(alignof(Sprite),
+                                       SPRITE_COUNT * sizeof(Sprite)));
 }
-void SASSPU_alloc_background_map(BackgroundMap &map) {
-  plane = (BackgroundPlane)(aligned_alloc(
-      SASSPU_alignof(uint16_t), (MAP_WIDTH * MAP_HEIGHT) * sizeof(uint16_t)));
+void SASSPU_alloc_background_map(BackgroundMap *map) {
+  *map = (BackgroundMap)(aligned_alloc(
+      alignof(uint16_t), (MAP_WIDTH * MAP_HEIGHT) * sizeof(uint16_t)));
 }
 
-void calloc_background_plane(BackgroundPlane &plane) {
-  alloc_background_plane(plane);
-  if (plane) {
-    memset(plane, 0, (BG_WIDTH * BG_HEIGHT / 8) * sizeof(uint16x8_t));
+void SASSPU_calloc_background_plane(BackgroundPlane *plane) {
+  SASSPU_alloc_background_plane(plane);
+  if (*plane) {
+    memset(*plane, 0, (BG_WIDTH * BG_HEIGHT / 8) * sizeof(uint16x8_t));
   }
 }
-void SASSPU_calloc_sprite_plane(SpritePlane &plane) {
-  alloc_sprite_plane(plane);
+void SASSPU_calloc_sprite_plane(SpritePlane *plane) {
+  SASSPU_alloc_sprite_plane(plane);
   if (plane) {
     memset(plane, 0, (SPR_WIDTH * SPR_HEIGHT / 8) * sizeof(uint16x8_t));
   }
 }
-void SASSPU_calloc_sprite_state(SpriteState &state) {
-  alloc_sprite_state(state);
-  if (state) {
-    memset(plane, 0, SPRITE_COUNT * sizeof(Sprite));
+void SASSPU_calloc_sprite_state(SpriteState *state) {
+  SASSPU_alloc_sprite_state(state);
+  if (*state) {
+    memset(*state, 0, SPRITE_COUNT * sizeof(Sprite));
   }
 }
-void SASSPU_calloc_background_map(BackgroundMap &map) {
-  alloc_background_map(map);
-  if (map) {
-    memset(plane, 0, (MAP_WIDTH * MAP_HEIGHT) * sizeof(uint16_t));
+void SASSPU_calloc_background_map(BackgroundMap *map) {
+  SASSPU_alloc_background_map(map);
+  if (*map) {
+    memset(*map, 0, (MAP_WIDTH * MAP_HEIGHT) * sizeof(uint16_t));
   }
 }
 
@@ -115,12 +115,12 @@ void SASSPU_free_sprite_state(SpriteState state) { free(state); }
 void SASSPU_free_background_map(BackgroundMap map) { free(map); }
 
 static inline void handle_background(uint16x8_t *const scanline, int16_t y) {
-  size_t y_pos =
-      (((size_t)(y + SASPPU_background_state->y)) >> 3) & ((MAP_HEIGHT)-1);
-  size_t x_pos =
-      (((size_t)(240 - 8 + SASPPU_background_state->x)) >> 3) & ((MAP_WIDTH)-1);
-  size_t offset_x = ((size_t)(SASPPU_background_state->x) & 0x7);
-  size_t offset_y = ((size_t)(y + SASPPU_background_state->y) & 0x7);
+  size_t y_pos = (((size_t)(y + SASPPU_background_state.scroll_y)) >> 3) &
+                 ((MAP_HEIGHT)-1);
+  size_t x_pos = (((size_t)(240 - 8 + SASPPU_background_state.scroll_x)) >> 3) &
+                 ((MAP_WIDTH)-1);
+  size_t offset_x = ((size_t)(SASPPU_background_state.scroll_x) & 0x7);
+  size_t offset_y = ((size_t)(y + SASPPU_background_state.scroll_y) & 0x7);
 
 #if USE_INLINE_ASM
   asm volatile inline("wur.sar_byte %[offset_x]"
@@ -133,11 +133,11 @@ static inline void handle_background(uint16x8_t *const scanline, int16_t y) {
   uint16x8_t *bg_1_p;
 
   if ((bg_map & 0b10) > 0) {
-    bg_1_p = &SASPPU_background[(size_t)(bg_map >> 2) +
-                                ((7 - offset_y) * (BG_WIDTH >> 3))];
+    bg_1_p = &SASPPU_background_plane[(size_t)(bg_map >> 2) +
+                                      ((7 - offset_y) * (BG_WIDTH >> 3))];
   } else {
-    bg_1_p = &SASPPU_background[(size_t)(bg_map >> 2) +
-                                (offset_y * (BG_WIDTH >> 3))];
+    bg_1_p = &SASPPU_background_plane[(size_t)(bg_map >> 2) +
+                                      (offset_y * (BG_WIDTH >> 3))];
   };
 
 #if USE_GCC_SIMD
@@ -192,11 +192,11 @@ static inline void handle_background(uint16x8_t *const scanline, int16_t y) {
     bg_map = SASPPU_background_map[y_pos * MAP_WIDTH + x_pos];
 
     if ((bg_map & 0b10) > 0) {
-      bg_1_p = &SASPPU_background[(size_t)(bg_map >> 2) +
-                                  ((7 - offset_y) * (BG_WIDTH >> 3))];
+      bg_1_p = &SASPPU_background_plane[(size_t)(bg_map >> 2) +
+                                        ((7 - offset_y) * (BG_WIDTH >> 3))];
     } else {
-      bg_1_p = &SASPPU_background[(size_t)(bg_map >> 2) +
-                                  (offset_y * (BG_WIDTH >> 3))];
+      bg_1_p = &SASPPU_background_plane[(size_t)(bg_map >> 2) +
+                                        (offset_y * (BG_WIDTH >> 3))];
     };
 
     if ((bg_map & 0b01) > 0) {
@@ -376,7 +376,7 @@ static void command_begin_frame(uint16x8_t *const scanline) {
 #endif
 
   uint16x8_t *maincol = &scanline[(240 / 8) - 1];
-  uint16x8_t *subcol = &SASPPU_subscreen_scanline[(240 / 8) - 1];
+  uint16x8_t *subcol = &SASPPU_sub_screen[(240 / 8) - 1];
 
   if (SASPPU_main_state.flags & MAIN_BGCOL_WINDOW_ENABLE) {
     ssize_t x = (240 / 8) - 1;
@@ -450,8 +450,8 @@ static void command_end_frame(uint16x8_t *const scanline) {
   }
 }
 
-static void command_apply_hdma(HDMATable &table, uint8_t y) {
-  HDMAEntry *entry = &table[y];
+static void command_apply_hdma(HDMATable *const table, uint8_t y) {
+  HDMAEntry *entry = &(*table)[y];
 
   switch (entry->command) {
   case HDMA_NOOP:
@@ -488,10 +488,10 @@ static void command_apply_hdma(HDMATable &table, uint8_t y) {
     SASPPU_cmath_state.flags = (uint8_t)(entry->value);
   } break;
   case HDMA_BACKGROUND_X: {
-    SASPPU_background_state.x = (int16_t)(entry->value);
+    SASPPU_background_state.scroll_x = (int16_t)(entry->value);
   } break;
   case HDMA_BACKGROUND_Y: {
-    SASPPU_background_state.y = (int16_t)(entry->value);
+    SASPPU_background_state.scroll_y = (int16_t)(entry->value);
   } break;
   case HDMA_BACKGROUND_WINDOWS: {
     SASPPU_background_state.windows = (uint8_t)(entry->value);
@@ -557,14 +557,14 @@ static inline void handle_sprite_cache(uint8_t y, uint8_t user_type) {
       }
     }
   } while ((++i) < SPRITE_COUNT);
-  while (sprite_index < SPRITE_CACHE) {
+  while (sprites_index < SPRITE_CACHE) {
     SASPPU_sprite_cache[sprites_index] = NULL;
     sprites_index += 1;
   };
 }
 
 void SASPPU_render(uint16x8_t *fb, uint8_t section,
-                   CommandBuffer &command_buffer) {
+                   CommandBuffer *const command_buffer) {
   // Screen is rendered top to bottom for sanity's sake
   size_t y = 60 * section;
 
@@ -641,7 +641,7 @@ void SASPPU_render(uint16x8_t *fb, uint8_t section,
       case CMD_BIND_SPRITE_STATE: {
         {
           uint32_t sprites_index = SPRITE_CACHE;
-          while (sprite_index != 0) {
+          while (sprites_index != 0) {
             sprites_index -= 1;
             SASPPU_sprite_cache[sprites_index] = NULL;
           };
@@ -661,7 +661,7 @@ void SASPPU_render(uint16x8_t *fb, uint8_t section,
         command_draw_background(scanline, y);
       } break;
       case CMD_DRAW_SPRITES: {
-        handle_sprite_cache(y, (uint8_t)(entry->data));
+        handle_sprite_cache(y, (uint8_t)(uint32_t)(entry->data));
         command_draw_sprites(scanline, y);
       } break;
       case CMD_END_FRAME: {
