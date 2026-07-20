@@ -127,7 +127,7 @@ static void IDENT(uint16x8_t *const scanline) {
   uint16x8_t *subcol = &SASPPU_sub_screen[(240 / 8) - 1];
 #endif
 
-  ssize_t x = (240 / 8) - 1;
+  size_t x = (240 / 8) - 1;
   do {
 #if USE_INLINE_ASM
 #if CMATH_ENABLE && FADE_ENABLE
@@ -250,7 +250,7 @@ static void IDENT(uint16x8_t *const scanline) {
 #endif
     CMATH_HELPER_RECOMBINE_COL(main_r, main_g, main_b, *(maincol--));
 #endif
-  } while ((--x) >= 0);
+  } while ((x--) > 0);
 }
 
 #undef IDENT

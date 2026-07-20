@@ -151,23 +151,23 @@ extern const uint16x8_t VECTOR_SHUFFLES[9];
 #ifndef __builtin_shuffle
 static inline uint16x8_t SHUFFLE_1(uint16x8_t a, uint16x8_t shuf) {
   uint16x8_t out = VBROADCAST(0);
-  ssize_t i = 7;
+  size_t i = 7;
   do {
     out[i] = a[shuf[i]];
-  } while ((--i) >= 0);
+  } while ((i--) > 0);
   return out;
 }
 static inline uint16x8_t SHUFFLE_2(uint16x8_t a, uint16x8_t b,
                                    uint16x8_t shuf) {
   uint16x8_t out = VBROADCAST(0);
-  ssize_t i = 7;
+  size_t i = 7;
   do {
     if (shuf[i] < 8) {
       out[i] = a[shuf[i]];
     } else {
       out[i] = b[shuf[i] - 8];
     }
-  } while ((--i) >= 0);
+  } while ((i--) > 0);
   return out;
 }
 #else

@@ -176,7 +176,7 @@ static inline void handle_background(uint16x8_t *const scanline, int16_t y) {
 #endif
   }
 
-  ssize_t x = (240 / 8) - 1;
+  size_t x = (240 / 8) - 1;
   do {
 #if USE_INLINE_ASM
     asm volatile inline("mv.qr q1, q0");
@@ -262,7 +262,7 @@ static inline void handle_background(uint16x8_t *const scanline, int16_t y) {
 #else
         (scanline, x, bg);
 #endif
-  } while ((--x) >= 0);
+  } while ((x--) > 0);
 }
 
 static void command_update_windows() {
@@ -355,8 +355,9 @@ static void command_begin_frame(uint16x8_t *const scanline) {
       HANDLE_WINDOW_LOOKUP[SASPPU_main_state.bgcol_windows & 0x0F];
   HandleWindowType sub_win =
       HANDLE_WINDOW_LOOKUP[SASPPU_main_state.bgcol_windows & 0xF0];
+  bool bgcol_window_enable = SASPPU_main_state.flags & MAIN_BGCOL_WINDOW_ENABLE;
 #if USE_INLINE_ASM
-  if (SASPPU_main_state.flags & MAIN_BGCOL_WINDOW_ENABLE) {
+  if (bgcol_window_enable) {
     asm volatile inline("ee.zero.q q3");
   }
 #endif
@@ -378,8 +379,8 @@ static void command_begin_frame(uint16x8_t *const scanline) {
   uint16x8_t *maincol = &scanline[(240 / 8) - 1];
   uint16x8_t *subcol = &SASPPU_sub_screen[(240 / 8) - 1];
 
-  if (SASPPU_main_state.flags & MAIN_BGCOL_WINDOW_ENABLE) {
-    ssize_t x = (240 / 8) - 1;
+  if (bgcol_window_enable) {
+    size_t x = (240 / 8) - 1;
     do {
 #if USE_INLINE_ASM
       asm volatile inline("                                   \n\t \
@@ -400,7 +401,7 @@ static void command_begin_frame(uint16x8_t *const scanline) {
       *(subcol--) = zero;
       main_win(scanline, x, vmaincol);
 #endif
-    } while ((--x) >= 0);
+    } while ((x--) > 0);
   } else {
     do {
 #if USE_INLINE_ASM
@@ -414,7 +415,7 @@ static void command_begin_frame(uint16x8_t *const scanline) {
       *(maincol--) = vmaincol;
       *(subcol--) = vsubcol;
 #endif
-    } while (maincol != scanline);
+    } while (maincol >= scanline);
   }
 }
 
@@ -583,7 +584,7 @@ void SASPPU_render(uint16x8_t *fb, uint8_t section,
     static const uint16x8_t zero = VBROADCAST(0);
 #endif
 
-    ssize_t x = ((240 / 8) * 60) - 1;
+    size_t x = ((240 / 8) * 60) - 1;
     uint16x8_t *section_pointer = fb + (y * 240 / 8) + x;
     do {
 #if USE_INLINE_ASM
@@ -600,7 +601,7 @@ void SASPPU_render(uint16x8_t *fb, uint8_t section,
         assert((*(section_pointer + 1))[i] == 0);
       }
 #endif
-    } while ((--x) >= 0);
+    } while ((x--) > 0);
 
     already_blanked[section] = true;
     return;
