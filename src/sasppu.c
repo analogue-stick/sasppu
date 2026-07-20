@@ -67,52 +67,52 @@ const uint16x8_t VECTOR_SHUFFLES[9] = {
 };
 #endif
 
-void SASSPU_alloc_background_plane(BackgroundPlane *plane) {
+void SASPPU_alloc_background_plane(BackgroundPlane *plane) {
   *plane = (BackgroundPlane)(aligned_alloc(
       alignof(uint16x8_t), (BG_WIDTH * BG_HEIGHT / 8) * sizeof(uint16x8_t)));
 }
-void SASSPU_alloc_sprite_plane(SpritePlane *plane) {
+void SASPPU_alloc_sprite_plane(SpritePlane *plane) {
   *plane = (SpritePlane)(aligned_alloc(
       alignof(uint16x8_t), (SPR_WIDTH * SPR_HEIGHT / 8) * sizeof(uint16x8_t)));
 }
-void SASSPU_alloc_sprite_state(SpriteState *state) {
+void SASPPU_alloc_sprite_state(SpriteState *state) {
   *state = (SpriteState)(aligned_alloc(alignof(Sprite),
                                        SPRITE_COUNT * sizeof(Sprite)));
 }
-void SASSPU_alloc_background_map(BackgroundMap *map) {
+void SASPPU_alloc_background_map(BackgroundMap *map) {
   *map = (BackgroundMap)(aligned_alloc(
       alignof(uint16_t), (MAP_WIDTH * MAP_HEIGHT) * sizeof(uint16_t)));
 }
 
-void SASSPU_calloc_background_plane(BackgroundPlane *plane) {
-  SASSPU_alloc_background_plane(plane);
+void SASPPU_calloc_background_plane(BackgroundPlane *plane) {
+  SASPPU_alloc_background_plane(plane);
   if (*plane) {
     memset(*plane, 0, (BG_WIDTH * BG_HEIGHT / 8) * sizeof(uint16x8_t));
   }
 }
-void SASSPU_calloc_sprite_plane(SpritePlane *plane) {
-  SASSPU_alloc_sprite_plane(plane);
+void SASPPU_calloc_sprite_plane(SpritePlane *plane) {
+  SASPPU_alloc_sprite_plane(plane);
   if (plane) {
     memset(plane, 0, (SPR_WIDTH * SPR_HEIGHT / 8) * sizeof(uint16x8_t));
   }
 }
-void SASSPU_calloc_sprite_state(SpriteState *state) {
-  SASSPU_alloc_sprite_state(state);
+void SASPPU_calloc_sprite_state(SpriteState *state) {
+  SASPPU_alloc_sprite_state(state);
   if (*state) {
     memset(*state, 0, SPRITE_COUNT * sizeof(Sprite));
   }
 }
-void SASSPU_calloc_background_map(BackgroundMap *map) {
-  SASSPU_alloc_background_map(map);
+void SASPPU_calloc_background_map(BackgroundMap *map) {
+  SASPPU_alloc_background_map(map);
   if (*map) {
     memset(*map, 0, (MAP_WIDTH * MAP_HEIGHT) * sizeof(uint16_t));
   }
 }
 
-void SASSPU_free_background_plane(BackgroundPlane plane) { free(plane); }
-void SASSPU_free_sprite_plane(SpritePlane plane) { free(plane); }
-void SASSPU_free_sprite_state(SpriteState state) { free(state); }
-void SASSPU_free_background_map(BackgroundMap map) { free(map); }
+void SASPPU_free_background_plane(BackgroundPlane plane) { free(plane); }
+void SASPPU_free_sprite_plane(SpritePlane plane) { free(plane); }
+void SASPPU_free_sprite_state(SpriteState state) { free(state); }
+void SASPPU_free_background_map(BackgroundMap map) { free(map); }
 
 static inline void handle_background(uint16x8_t *const scanline, int16_t y) {
   size_t y_pos = (((size_t)(y + SASPPU_background_state.scroll_y)) >> 3) &
@@ -504,59 +504,61 @@ static void command_apply_hdma(HDMATable *const table, uint8_t y) {
 
 static inline void handle_sprite_cache(uint8_t y, uint8_t user_type) {
   uint32_t sprites_index = 0;
-  size_t i = 0;
-  do {
-    Sprite *spr = &SASPPU_sprite_state[i];
-    uint8_t flags = spr->flags;
-    uint8_t windows = spr->windows;
-    int16_t iy = (int16_t)y;
+  if (SASPPU_sprite_state) {
+    size_t i = 0;
+    do {
+      Sprite *spr = &SASPPU_sprite_state[i];
+      uint8_t flags = spr->flags;
+      uint8_t windows = spr->windows;
+      int16_t iy = (int16_t)y;
 
-    int16_t spr_height = (int16_t)(spr->height);
-    int16_t spr_width = (int16_t)(spr->width);
+      int16_t spr_height = (int16_t)(spr->height);
+      int16_t spr_width = (int16_t)(spr->width);
 
-    bool main_screen_enable = (windows & 0x0F) > 0;
-    bool sub_screen_enable = (windows & 0xF0) > 0;
+      bool main_screen_enable = (windows & 0x0F) > 0;
+      bool sub_screen_enable = (windows & 0xF0) > 0;
 
-    bool enabled = (flags & SPR_ENABLED) > 0;
-    // bool flip_x = (flags & SPR_FLIP_X) > 0;
-    // bool flip_y = (flags & SPR_FLIP_Y) > 0;
-    // bool cmath_enabled = (flags & SPR_C_MATH) > 0;
-    bool double_enabled = (flags & SPR_DOUBLE) > 0;
-    uint8_t sprite_user_type = flags & SPR_USER_TYPE;
+      bool enabled = (flags & SPR_ENABLED) > 0;
+      // bool flip_x = (flags & SPR_FLIP_X) > 0;
+      // bool flip_y = (flags & SPR_FLIP_Y) > 0;
+      // bool cmath_enabled = (flags & SPR_C_MATH) > 0;
+      bool double_enabled = (flags & SPR_DOUBLE) > 0;
+      uint8_t sprite_user_type = flags & SPR_USER_TYPE;
 
-    // If not enabled, skip
-    if (!enabled) {
-      continue;
-    }
-
-    // If user type does not match, skip
-    if (sprite_user_type != user_type) {
-      continue;
-    }
-
-    // If we've hit the limit, skip
-    if (sprites_index == SPRITE_CACHE) {
-      continue;
-    }
-
-    bool window_enabled = (main_screen_enable) || (sub_screen_enable);
-    bool top_border = spr->y <= iy;
-    bool bottom_border = double_enabled ? (spr->y > (iy - (spr_height << 1)))
-                                        : (spr->y > (iy - (spr_height)));
-    bool right_border = spr->x < SCREEN_WIDTH;
-    bool left_border =
-        double_enabled ? (spr->x > -(spr_width << 1)) : (spr->x > -(spr_width));
-
-    if (window_enabled && top_border && bottom_border && right_border &&
-        left_border) {
-      SASPPU_sprite_cache[sprites_index] = spr;
-      sprites_index += 1;
-
-      if (sprites_index == SPRITE_CACHE) {
-        break;
+      // If not enabled, skip
+      if (!enabled) {
+        continue;
       }
-    }
-  } while ((++i) < SPRITE_COUNT);
+
+      // If user type does not match, skip
+      if (sprite_user_type != user_type) {
+        continue;
+      }
+
+      // If we've hit the limit, skip
+      if (sprites_index == SPRITE_CACHE) {
+        continue;
+      }
+
+      bool window_enabled = (main_screen_enable) || (sub_screen_enable);
+      bool top_border = spr->y <= iy;
+      bool bottom_border = double_enabled ? (spr->y > (iy - (spr_height << 1)))
+                                          : (spr->y > (iy - (spr_height)));
+      bool right_border = spr->x < SCREEN_WIDTH;
+      bool left_border = double_enabled ? (spr->x > -(spr_width << 1))
+                                        : (spr->x > -(spr_width));
+
+      if (window_enabled && top_border && bottom_border && right_border &&
+          left_border) {
+        SASPPU_sprite_cache[sprites_index] = spr;
+        sprites_index += 1;
+
+        if (sprites_index == SPRITE_CACHE) {
+          break;
+        }
+      }
+    } while ((++i) < SPRITE_COUNT);
+  }
   while (sprites_index < SPRITE_CACHE) {
     SASPPU_sprite_cache[sprites_index] = NULL;
     sprites_index += 1;
@@ -595,7 +597,7 @@ void SASPPU_render(uint16x8_t *fb, uint8_t section,
 #endif
 #if VERIFY_INLINE_ASM
       for (ssize_t i = 7; i >= 0; i--) {
-        assert(*(section_pointer + 1)[i] == 0);
+        assert((*(section_pointer + 1))[i] == 0);
       }
 #endif
     } while ((--x) >= 0);
@@ -620,6 +622,8 @@ void SASPPU_render(uint16x8_t *fb, uint8_t section,
     bool running = true;
     while (running) {
       switch (entry->command) {
+      case CMD_NOOP: {
+      } break;
       case CMD_BIND_MAIN_STATE: {
         SASPPU_main_state = *(MainState *)(entry->data);
       } break;
@@ -627,13 +631,13 @@ void SASPPU_render(uint16x8_t *fb, uint8_t section,
         SASPPU_cmath_state = *(CMathState *)(entry->data);
       } break;
       case CMD_BIND_BACKGROUND_PLANE: {
-        SASPPU_background_plane = (BackgroundPlane)(entry->data);
+        SASPPU_background_plane = *(BackgroundPlane *)(entry->data);
       } break;
       case CMD_BIND_SPRITE_PLANE: {
-        SASPPU_sprite_plane = (SpritePlane)(entry->data);
+        SASPPU_sprite_plane = *(SpritePlane *)(entry->data);
       } break;
       case CMD_BIND_BACKGROUND_MAP: {
-        SASPPU_background_map = (BackgroundMap)(entry->data);
+        SASPPU_background_map = *(BackgroundMap *)(entry->data);
       } break;
       case CMD_BIND_BACKGROUND_STATE: {
         SASPPU_background_state = *(BackgroundState *)(entry->data);
@@ -646,7 +650,7 @@ void SASPPU_render(uint16x8_t *fb, uint8_t section,
             SASPPU_sprite_cache[sprites_index] = NULL;
           };
         }
-        SASPPU_sprite_state = (SpriteState)(entry->data);
+        SASPPU_sprite_state = *(SpriteState *)(entry->data);
       } break;
       case CMD_APPLY_HDMA: {
         command_apply_hdma((HDMATable *)(entry->data), y);

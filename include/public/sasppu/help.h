@@ -176,4 +176,6 @@ void SASPPU_get_text_size(size_t *width, size_t *height, size_t line_width,
                           size_t newline_height, bool double_size,
                           const char *text);
 
+void SASPPU_render_all(uint16x8_t *fb, CommandBuffer *command_buffer);
+
 #endif // SASPPU_HELP_H_

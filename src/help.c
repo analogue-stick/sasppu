@@ -479,3 +479,10 @@ SASPPU_draw_text_next_background(BackgroundPlane background_plane, size_t *x,
       x, y, colour, line_start, line_width, newline_height, double_size, text,
       (uint16_t *)background_plane, BG_WIDTH, BG_HEIGHT);
 }
+
+void SASPPU_render_all(uint16x8_t *fb, CommandBuffer *command_buffer) {
+  SASPPU_render(fb, 0, command_buffer);
+  SASPPU_render(fb, 1, command_buffer);
+  SASPPU_render(fb, 2, command_buffer);
+  SASPPU_render(fb, 3, command_buffer);
+}

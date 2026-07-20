@@ -114,8 +114,8 @@ static void IDENT(uint16x8_t *const scanline, uint16_t x, uint16x8_t col) {
   scanline[x] &= ~main_window;
   scanline[x] |= col & main_window;
 
-  SASPPU_subscreen_scanline[x] &= ~sub_window;
-  SASPPU_subscreen_scanline[x] |= col & sub_window;
+  SASPPU_sub_screen[x] &= ~sub_window;
+  SASPPU_sub_screen[x] |= col & sub_window;
 
 #undef window_logic_window
 #undef window_macro

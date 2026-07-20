@@ -195,7 +195,8 @@ typedef enum : uint16_t
 #else
 typedef enum
 #endif
-{ CMD_BIND_MAIN_STATE,
+{ CMD_NOOP,
+  CMD_BIND_MAIN_STATE,
   CMD_BIND_C_MATH_STATE,
   CMD_BIND_BACKGROUND_PLANE,
   CMD_BIND_SPRITE_PLANE,
