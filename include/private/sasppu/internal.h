@@ -26,8 +26,8 @@
 #define USE_GCC_SIMD ((!USE_INLINE_ASM) | VERIFY_INLINE_ASM)
 #endif
 
-#ifndef QEMU_EMULATOR
-#define QEMU_EMULATOR 0
+#ifndef SASPPU_QEMU_EMULATOR
+#define SASPPU_QEMU_EMULATOR 0
 #endif
 
 #include "assert.h"
