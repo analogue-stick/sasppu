@@ -53,11 +53,12 @@ fn main() {
     let mut cmath_state = CMathState::default();
     cmath_state.flags = CMATH_CMATH_ENABLE | CMATH_SUB_SUB_SCREEN;
 
-    let oam = new_sprite_state();
+    let oam = new_sprite_state(TEST_SPR_COUNT);
 
     for (i, spr) in oam
         .write()
         .unwrap()
+        .dat
         .iter_mut()
         .take(TEST_SPR_COUNT)
         .enumerate()
@@ -83,11 +84,15 @@ fn main() {
         spr.graphics_x = ((i as u8 >> 1) % 8) * 4;
     }
 
-    let background = new_background_plane();
+    const BG_HEIGHT: usize = 256;
+    const BG_WIDTH: usize = 256;
+
+    let background = new_graphics_plane(BG_WIDTH, BG_HEIGHT);
 
     for val in background
         .write()
         .unwrap()
+        .dat
         .iter_mut()
         .zip(BG_DEFAULT.iter().cloned().array_chunks::<16>())
     {
@@ -101,7 +106,10 @@ fn main() {
         }
     }
 
-    let bg0 = new_background_map();
+    const MAP_HEIGHT: usize = 32;
+    const MAP_WIDTH: usize = 32;
+
+    let bg0 = new_background_map(MAP_HEIGHT, MAP_WIDTH);
 
     let mut bg0_write = bg0.write().unwrap();
 
@@ -117,7 +125,7 @@ fn main() {
             } else {
                 (x, false)
             };
-            bg0_write[y][x] = (((xpos + (ypos * BG_WIDTH)) * 8) >> 1) as u16
+            bg0_write.dat[y * MAP_WIDTH + x] = (((xpos + (ypos * BG_WIDTH)) * 8) >> 1) as u16
                 | ((flipy as u16) << 1)
                 | (flipx as u16);
         }
@@ -125,13 +133,16 @@ fn main() {
 
     drop(bg0_write);
 
-    let sprites = new_sprite_plane();
+    const SPR_HEIGHT: usize = 256;
+    const SPR_WIDTH: usize = 256;
+
+    let sprites = new_graphics_plane(SPR_WIDTH, SPR_HEIGHT);
 
     for val in sprites
         .write()
         .unwrap()
+        .dat
         .iter_mut()
-        .flatten()
         .zip(SPR_DEFAULT.iter().cloned().array_chunks::<16>())
     {
         for v in val
@@ -159,6 +170,7 @@ fn main() {
             for (i, spr) in oam
                 .write()
                 .unwrap()
+                .dat
                 .iter_mut()
                 .take(TEST_SPR_COUNT)
                 .enumerate()

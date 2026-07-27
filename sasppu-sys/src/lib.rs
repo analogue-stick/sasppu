@@ -125,83 +125,92 @@ impl Default for MainState {
 pub const MAIN_CMATH_ENABLE: u8 = 1 << 0;
 pub const MAIN_BGCOL_WINDOW_ENABLE: u8 = 1 << 1;
 
-pub const BG_WIDTH_POWER_MAX: usize = 8;
-pub const BG_WIDTH_POWER_MIN: usize = 3;
-pub const BG_HEIGHT_POWER_MAX: usize = 8;
-pub const BG_HEIGHT_POWER_MIN: usize = 3;
-pub const BG_WIDTH_MAX: usize = 1 << BG_WIDTH_POWER_MAX;
-pub const BG_WIDTH_MIN: usize = 1 << BG_WIDTH_POWER_MIN;
-pub const BG_HEIGHT_MAX: usize = 1 << BG_HEIGHT_POWER_MAX;
-pub const BG_HEIGHT_MIN: usize = 1 << BG_HEIGHT_POWER_MIN;
-
-pub const BG_WIDTH: usize = BG_WIDTH_MAX;
-pub const BG_HEIGHT: usize = BG_HEIGHT_MAX;
+pub const GRAPHICS_WIDTH_POWER_MAX: usize = 8;
+pub const GRAPHICS_HEIGHT_POWER_MAX: usize = 9;
+pub const GRAPHICS_WIDTH_POWER_MIN: usize = 3;
+pub const GRAPHICS_HEIGHT_POWER_MIN: usize = 3;
+pub const GRAPHICS_WIDTH_MAX: usize = 1 << GRAPHICS_WIDTH_POWER_MAX;
+pub const GRAPHICS_HEIGHT_MAX: usize = 1 << GRAPHICS_HEIGHT_POWER_MAX;
+pub const GRAPHICS_WIDTH_MIN: usize = 1 << GRAPHICS_WIDTH_POWER_MIN;
+pub const GRAPHICS_HEIGHT_MIN: usize = 1 << GRAPHICS_HEIGHT_POWER_MIN;
 
 pub const SPRITE_COUNT_POWER_MAX: usize = 8;
-pub const SPRITE_COUNT_POWER_MIN: usize = SPRITE_CACHE_POWER;
+pub const SPRITE_COUNT_POWER_MIN: usize = 0;
 pub const SPRITE_CACHE_POWER: usize = 4;
 pub const SPRITE_COUNT_MAX: usize = 1 << SPRITE_COUNT_POWER_MAX;
 pub const SPRITE_COUNT_MIN: usize = 1 << SPRITE_COUNT_POWER_MIN;
 pub const SPRITE_CACHE: usize = 1 << SPRITE_CACHE_POWER;
 
-pub const SPRITE_COUNT: usize = SPRITE_COUNT_MAX;
-
-pub const SPR_WIDTH_POWER_MAX: usize = 8;
-pub const SPR_WIDTH_POWER_MIN: usize = 3;
-pub const SPR_HEIGHT_POWER_MAX: usize = 8;
-pub const SPR_HEIGHT_POWER_MIN: usize = 3;
-pub const SPR_WIDTH_MAX: usize = 1 << SPR_WIDTH_POWER_MAX;
-pub const SPR_WIDTH_MIN: usize = 1 << SPR_WIDTH_POWER_MIN;
-pub const SPR_HEIGHT_MAX: usize = 1 << SPR_HEIGHT_POWER_MAX;
-pub const SPR_HEIGHT_MIN: usize = 1 << SPR_HEIGHT_POWER_MIN;
-
-pub const SPR_WIDTH: usize = SPR_WIDTH_MAX;
-pub const SPR_HEIGHT: usize = SPR_HEIGHT_MAX;
-
-pub const MAP_WIDTH_POWER_MAX: usize = 6;
-pub const MAP_WIDTH_POWER_MIN: usize = 3;
-pub const MAP_HEIGHT_POWER_MAX: usize = 6;
-pub const MAP_HEIGHT_POWER_MIN: usize = 3;
+pub const MAP_WIDTH_POWER_MAX: usize = 8;
+pub const MAP_HEIGHT_POWER_MAX: usize = 8;
+pub const MAP_WIDTH_POWER_MIN: usize = 0;
+pub const MAP_HEIGHT_POWER_MIN: usize = 0;
 pub const MAP_WIDTH_MAX: usize = 1 << MAP_WIDTH_POWER_MAX;
-pub const MAP_WIDTH_MIN: usize = 1 << MAP_WIDTH_POWER_MIN;
 pub const MAP_HEIGHT_MAX: usize = 1 << MAP_HEIGHT_POWER_MAX;
+pub const MAP_WIDTH_MIN: usize = 1 << MAP_WIDTH_POWER_MIN;
 pub const MAP_HEIGHT_MIN: usize = 1 << MAP_HEIGHT_POWER_MIN;
-
-pub const MAP_WIDTH: usize = MAP_WIDTH_MAX;
-pub const MAP_HEIGHT: usize = MAP_HEIGHT_MAX;
 
 pub type SpriteCache<'a> = [Option<&'a Sprite>; SPRITE_CACHE];
 
-type BackgroundPlaneInner = Box<[u16x8; (BG_WIDTH / 8) * BG_HEIGHT]>;
-type SpritePlaneInner = Box<[[u16x8; SPR_WIDTH / 8]; SPR_HEIGHT]>;
-type SpriteStateInner = Box<[Sprite; SPRITE_COUNT]>;
-type BackgroundMapInner = Box<[[u16; MAP_WIDTH]; MAP_HEIGHT]>;
+pub struct GraphicsPlaneInner {
+    pub width:  usize,
+    pub height: usize,
+    pub dat:    Vec<u16x8>,
+}
 
-pub type BackgroundPlane = Rc<RwLock<BackgroundPlaneInner>>;
-pub type SpritePlane = Rc<RwLock<SpritePlaneInner>>;
+pub struct SpriteStateInner {
+    pub count: usize,
+    pub dat:   Vec<Sprite>,
+}
+
+pub struct BackgroundMapInner {
+    pub width:  usize,
+    pub height: usize,
+    pub dat:    Vec<u16>,
+}
+
+pub type GraphicsPlane = Rc<RwLock<GraphicsPlaneInner>>;
 pub type SpriteState = Rc<RwLock<SpriteStateInner>>;
 pub type BackgroundMap = Rc<RwLock<BackgroundMapInner>>;
 
 #[must_use]
-#[expect(clippy::large_stack_arrays)]
-pub fn new_background_plane() -> BackgroundPlane {
-    Rc::new(RwLock::new(Box::new([u16x8::default(); _])))
+pub fn new_graphics_plane(width: usize, height: usize) -> GraphicsPlane {
+    assert!(width.is_power_of_two());
+    assert!(height.is_power_of_two());
+    assert!(width >= GRAPHICS_WIDTH_MIN);
+    assert!(width <= GRAPHICS_WIDTH_MAX);
+    assert!(height >= GRAPHICS_HEIGHT_MIN);
+    assert!(height <= GRAPHICS_HEIGHT_MAX);
+    Rc::new(RwLock::new(GraphicsPlaneInner {
+        width,
+        height,
+        dat: vec![u16x8::default(); width * height / 8],
+    }))
 }
 
 #[must_use]
-#[expect(clippy::large_stack_arrays)]
-pub fn new_sprite_plane() -> SpritePlane {
-    Rc::new(RwLock::new(Box::new([[u16x8::default(); _]; _])))
+pub fn new_sprite_state(count: usize) -> SpriteState {
+    assert!(count >= SPRITE_COUNT_MIN);
+    assert!(count <= SPRITE_COUNT_MAX);
+    Rc::new(RwLock::new(SpriteStateInner {
+        count,
+        dat: vec![Sprite::default(); count],
+    }))
 }
 
 #[must_use]
-pub fn new_sprite_state() -> SpriteState {
-    Rc::new(RwLock::new(Box::new([Sprite::default(); _])))
-}
-
-#[must_use]
-pub fn new_background_map() -> BackgroundMap {
-    Rc::new(RwLock::new(Box::new([[16; _]; _])))
+pub fn new_background_map(width: usize, height: usize) -> BackgroundMap {
+    assert!(width.is_power_of_two());
+    assert!(height.is_power_of_two());
+    assert!(width >= MAP_WIDTH_MIN);
+    assert!(width <= MAP_WIDTH_MAX);
+    assert!(height >= MAP_HEIGHT_MIN);
+    assert!(height <= MAP_HEIGHT_MAX);
+    Rc::new(RwLock::new(BackgroundMapInner {
+        width,
+        height,
+        dat: vec![u16::default(); width * height],
+    }))
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -236,8 +245,8 @@ pub type HDMATable = Rc<RwLock<HDMATableInner>>;
 pub enum Command {
     BindMainState(MainState),
     BindCMathState(CMathState),
-    BindBackgroundPlane(BackgroundPlane),
-    BindSpritePlane(SpritePlane),
+    BindBackgroundPlane(GraphicsPlane),
+    BindSpritePlane(GraphicsPlane),
     BindBackgroundMap(BackgroundMap),
     BindBackgroundState(BackgroundState),
     BindSpriteState(SpriteState),
@@ -358,7 +367,7 @@ fn swimzleoo(a: u16x8, b: u16x8, offset: usize) -> u16x8 {
 fn handle_background(
     state: BackgroundState,                    // a9
     map: &RwLockReadGuard<BackgroundMapInner>, // a10
-    graphics: &RwLockReadGuard<BackgroundPlaneInner>,
+    graphics: &RwLockReadGuard<GraphicsPlaneInner>,
     window_handler: HandleWindowType,
     main_col: &mut [u16x8; 240 / 8], // q0
     sub_col: &mut [u16x8; 240 / 8],  // q1
@@ -366,16 +375,18 @@ fn handle_background(
     window_1: &[mask16x8; 240 / 8],  // q2
     window_2: &[mask16x8; 240 / 8],  // q3
 ) {
-    let y_pos = (((y + state.scroll_y) as usize) >> 3) & ((MAP_HEIGHT) - 1);
-    let mut x_pos = (((240 - 8 + state.scroll_x) as usize) >> 3) & ((MAP_WIDTH) - 1);
+    let y_pos = (((y + state.scroll_y) as usize) >> 3) & ((map.height) - 1);
+    let mut x_pos = (((240 - 8 + state.scroll_x) as usize) >> 3) & ((map.width) - 1);
     let offset_x = ((state.scroll_x) & 0x7u16.cast_signed()) as usize;
     let offset_y = ((y + state.scroll_y) & 0x7u16.cast_signed()) as usize;
 
-    let bg_map = map[y_pos][x_pos]; // -> q5
+    let bg_map = map.dat[y_pos * map.width + x_pos]; // -> q5
     let mut bg_1 = if (bg_map & 0b10) > 0 {
-        graphics[(bg_map >> 2) as usize + ((7 - offset_y) * (BG_WIDTH >> 3))]
+        graphics.dat[((bg_map >> 2) as usize + ((7 - offset_y) * (graphics.width >> 3)))
+            & ((graphics.width >> 3) * graphics.height - 1)]
     } else {
-        graphics[(bg_map >> 2) as usize + (offset_y * (BG_WIDTH >> 3))]
+        graphics.dat[((bg_map >> 2) as usize + (offset_y * (graphics.width >> 3)))
+            & ((graphics.width >> 3) * graphics.height - 1)]
     }; // -> q5
 
     if (bg_map & 0b01) > 0 {
@@ -386,13 +397,15 @@ fn handle_background(
 
     for x in (0..(240 / 8)).rev() {
         bg_2 = bg_1;
-        x_pos = (x_pos.wrapping_sub(1)) & ((MAP_WIDTH) - 1);
+        x_pos = (x_pos.wrapping_sub(1)) & ((map.width) - 1);
 
-        let bg_map = map[y_pos][x_pos]; // -> q5
+        let bg_map = map.dat[y_pos * map.width + x_pos]; // -> q5
         bg_1 = if (bg_map & 0b10) > 0 {
-            graphics[(bg_map >> 2) as usize + ((7 - offset_y) * (BG_WIDTH >> 3))]
+            graphics.dat[((bg_map >> 2) as usize + ((7 - offset_y) * (graphics.width >> 3)))
+                & ((graphics.width >> 3) * graphics.height - 1)]
         } else {
-            graphics[(bg_map >> 2) as usize + (offset_y * (BG_WIDTH >> 3))]
+            graphics.dat[((bg_map >> 2) as usize + (offset_y * (graphics.width >> 3)))
+                & ((graphics.width >> 3) * graphics.height - 1)]
         }; // -> q5
 
         if (bg_map & 0b01) > 0 {
@@ -412,7 +425,7 @@ fn handle_background(
 #[inline]
 fn handle_sprite<const FLIP_X: bool, const FLIP_Y: bool, const CMATH: bool, const DOUBLE: bool>(
     sprite: &Sprite,
-    graphics: &RwLockReadGuard<SpritePlaneInner>,
+    graphics: &RwLockReadGuard<GraphicsPlaneInner>,
     main_col: &mut [u16x8; 240 / 8], // q0
     sub_col: &mut [u16x8; 240 / 8],  // q1
     y: i16,
@@ -464,8 +477,10 @@ fn handle_sprite<const FLIP_X: bool, const FLIP_Y: bool, const CMATH: bool, cons
             // q5
             u16x8::splat(0)
         } else {
-            graphics[offset_y + sprite.graphics_y as usize]
-                [(x_pos.cast_unsigned() >> 3) + sprite.graphics_x as usize]
+            graphics.dat[(((offset_y + sprite.graphics_y as usize) & (graphics.height - 1))
+                * (graphics.width >> 3))
+                + (((x_pos.cast_unsigned() >> 3) + sprite.graphics_x as usize)
+                    & ((graphics.width >> 3) - 1))]
         };
 
         if DOUBLE {
@@ -550,7 +565,7 @@ macro_rules! generate_handle_sprites {
 
 type HandleSpriteType = fn(
     &Sprite,
-    &RwLockReadGuard<SpritePlaneInner>,
+    &RwLockReadGuard<GraphicsPlaneInner>,
     &mut [u16x8; 240 / 8],
     &mut [u16x8; 240 / 8],
     i16,
@@ -806,7 +821,7 @@ fn command_begin_frame(
 fn command_draw_background(
     background_state: Option<&BackgroundState>,
     background_map: Option<&RwLockReadGuard<BackgroundMapInner>>,
-    background_plane: Option<&RwLockReadGuard<BackgroundPlaneInner>>,
+    background_plane: Option<&RwLockReadGuard<GraphicsPlaneInner>>,
     main_screen: &mut [u16x8; 240 / 8],
     sub_screen: &mut [u16x8; 240 / 8],
     window_1_cache: &[mask16x8; 240 / 8],
@@ -832,7 +847,7 @@ fn command_draw_background(
 }
 
 fn command_draw_sprites(
-    sprite_plane: Option<&RwLockReadGuard<SpritePlaneInner>>,
+    sprite_plane: Option<&RwLockReadGuard<GraphicsPlaneInner>>,
     sprite_cache: &SpriteCache,
     main_screen: &mut [u16x8; 240 / 8],
     sub_screen: &mut [u16x8; 240 / 8],
@@ -960,8 +975,8 @@ fn command_apply_hdma(
     }
 }
 
-fn handle_sprite_cache<'a, 'b, const SPRITE_COUNT: usize>(
-    sprite_state: Option<&'a RwLockReadGuard<Box<[Sprite; SPRITE_COUNT]>>>,
+fn handle_sprite_cache<'a, 'b>(
+    sprite_state: Option<&'a RwLockReadGuard<SpriteStateInner>>,
     y: u8,
     sprite_cache: &mut SpriteCache<'b>,
     user_type: u8,
@@ -970,7 +985,8 @@ fn handle_sprite_cache<'a, 'b, const SPRITE_COUNT: usize>(
 {
     let mut sprites_index = 0;
     if let Some(sprite_state) = sprite_state {
-        for spr in sprite_state.iter() {
+        for spr_index in 0..sprite_state.count {
+            let spr = &sprite_state.dat[spr_index];
             let flags = spr.flags;
             let windows = spr.windows;
             let iy = i16::from(y);
@@ -1044,8 +1060,8 @@ pub fn render(screen: &mut [[u16; 240]; 240], command_buffer: &CommandBuffer) {
     let mut this_main_state: Option<MainState> = None;
     let mut this_cmath_state: Option<CMathState> = None;
     let mut this_background_state: Option<BackgroundState> = None;
-    let mut this_background_plane: Option<RwLockReadGuard<BackgroundPlaneInner>> = None;
-    let mut this_sprite_plane: Option<RwLockReadGuard<SpritePlaneInner>> = None;
+    let mut this_background_plane: Option<RwLockReadGuard<GraphicsPlaneInner>> = None;
+    let mut this_sprite_plane: Option<RwLockReadGuard<GraphicsPlaneInner>> = None;
     let mut this_background_map: Option<RwLockReadGuard<BackgroundMapInner>> = None;
     let mut this_sprite_state: Option<RwLockReadGuard<SpriteStateInner>> = None;
     for y in 0..240 {
