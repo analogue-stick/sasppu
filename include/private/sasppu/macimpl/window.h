@@ -15,19 +15,20 @@
 #endif
 
 #if USE_INLINE_ASM
-static void IDENT(uint16x8_t *const scanline, uint16_t x) {
+static void IDENT(uint16_t x) {
   asm volatile(
       "                                                                                   \n\t \
         .include \"sasppu/asm/window.i\"                                                 \n\t \
         window_macro %[logic_main], %[logic_sub], %[window_index], %[maincol], %[subcol]    \n\t \
         "
       :
-      : [maincol] "r"(&scanline[x]), [subcol] "r"(&SASPPU_sub_screen[x]),
+      : [maincol] "r"(&SASPPU_main_screen[x]),
+        [subcol] "r"(&SASPPU_sub_screen[x]),
         [window_index] "r"(&SASPPU_window_cache[x * 2]),
         [logic_main] "i"(LOGIC_MAIN), [logic_sub] "i"(LOGIC_SUB));
 }
 #else
-static void IDENT(uint16x8_t *const scanline, uint16_t x, uint16x8_t col) {
+static void IDENT(uint16_t x, uint16x8_t col) {
   static const uint16x8_t zero = VBROADCAST(0);
 #define window_logic_window(enable, w1, w2) ((enable) ? ((w1) & (w2)) : zero)
 #define window_macro(enable_a, enable_b, enable_c, enable_d, w1, w2)           \
@@ -111,8 +112,8 @@ static void IDENT(uint16x8_t *const scanline, uint16_t x, uint16x8_t col) {
   mask16x8_t sub_window = get_window_sub(w1, w2);
   sub_window = sub_window & (col != (short)0);
 
-  scanline[x] &= ~main_window;
-  scanline[x] |= col & main_window;
+  SASPPU_main_screen[x] &= ~main_window;
+  SASPPU_main_screen[x] |= col & main_window;
 
   SASPPU_sub_screen[x] &= ~sub_window;
   SASPPU_sub_screen[x] |= col & sub_window;

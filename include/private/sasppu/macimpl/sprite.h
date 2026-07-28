@@ -20,8 +20,7 @@
 #define DOUBLE 1
 #endif
 
-static void IDENT(uint16x8_t *const scanline, const int16_t y,
-                  Sprite *const sprite) {
+static void IDENT(const int16_t y, Sprite *const sprite) {
 #if DOUBLE
   uint8_t sprite_width = sprite->width << 1;
 #else
@@ -84,6 +83,10 @@ static void IDENT(uint16x8_t *const scanline, const int16_t y,
     end_x -= 1;
   }
 
+  size_t mask_y = SASPPU_sprite_plane.height - 1;
+  size_t mult_y = SASPPU_sprite_plane.width >> 3;
+  size_t mask_x = mult_y - 1;
+
   ssize_t x = end_x;
   do {
 #if FLIP_X
@@ -122,10 +125,14 @@ static void IDENT(uint16x8_t *const scanline, const int16_t y,
       CHECK_SIMD_Q0(spr_1);
 #endif
     } else {
+
       uint16x8_t *spr_1_p =
           &SASPPU_sprite_plane
-              [((offset_y + (size_t)(sprite->graphics_y)) * (SPR_WIDTH >> 3)) +
-               (((size_t)(x_pos) >> 3) + (size_t)(sprite->graphics_x >> 3))];
+               .dat[(((offset_y + (size_t)(sprite->graphics_y)) & mask_y) *
+                     mult_y) +
+                    ((((size_t)(x_pos) >> 3) + (size_t)(sprite->graphics_x >> 3)) &
+                     mask_x)];
+
 #if USE_INLINE_ASM
       asm volatile inline("ld.qr q0, %[spr_1_p], 0" : : [spr_1_p] "r"(spr_1_p));
 #endif
@@ -208,9 +215,9 @@ static void IDENT(uint16x8_t *const scanline, const int16_t y,
 #endif
 
 #if USE_INLINE_ASM
-      windows(scanline, x);
+      windows(x);
 #else
-      windows(scanline, x, spr_col);
+      windows(x, spr_col);
 #endif
     }
     x -= 1;
@@ -245,9 +252,9 @@ static void IDENT(uint16x8_t *const scanline, const int16_t y,
 #endif
 
 #if USE_INLINE_ASM
-      windows(scanline, x);
+      windows(x);
 #else
-      windows(scanline, x, spr_col);
+      windows(x, spr_col);
 #endif
     }
     x -= 1;
@@ -308,9 +315,9 @@ static void IDENT(uint16x8_t *const scanline, const int16_t y,
 #endif
 
 #if USE_INLINE_ASM
-      windows(scanline, x);
+      windows(x);
 #else
-      windows(scanline, x, spr_col);
+      windows(x, spr_col);
 #endif
     }
     x -= 1;

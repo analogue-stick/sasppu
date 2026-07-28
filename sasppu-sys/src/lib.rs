@@ -479,7 +479,7 @@ fn handle_sprite<const FLIP_X: bool, const FLIP_Y: bool, const CMATH: bool, cons
         } else {
             graphics.dat[(((offset_y + sprite.graphics_y as usize) & (graphics.height - 1))
                 * (graphics.width >> 3))
-                + (((x_pos.cast_unsigned() >> 3) + sprite.graphics_x as usize)
+                + (((x_pos.cast_unsigned() >> 3) + (sprite.graphics_x >> 3) as usize)
                     & ((graphics.width >> 3) - 1))]
         };
 

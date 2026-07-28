@@ -117,12 +117,12 @@
 
 #endif // SASPPU_MACIMPL_CMATH_H_
 
-static void IDENT(uint16x8_t *const scanline) {
+static void IDENT() {
 #if USE_INLINE_ASM
   asm volatile inline(".include \"sasppu/asm/cmath.i\"");
 #endif
 
-  uint16x8_t *maincol = &scanline[(240 / 8) - 1];
+  uint16x8_t *maincol = &SASPPU_main_screen[(240 / 8) - 1];
 #if CMATH_ENABLE
   uint16x8_t *subcol = &SASPPU_sub_screen[(240 / 8) - 1];
 #endif

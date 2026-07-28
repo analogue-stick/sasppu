@@ -1,6 +1,3 @@
-#![feature(portable_simd)]
-#![feature(iter_array_chunks)]
-#![allow(static_mut_refs)]
 use std::{
     collections::VecDeque,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -81,7 +78,7 @@ fn main() {
         spr.width = 32;
         spr.height = 32;
         spr.x = 0;
-        spr.graphics_x = ((i as u8 >> 1) % 8) * 4;
+        spr.graphics_x = ((i as u8 >> 1) % 8) * 4 * 8;
     }
 
     const BG_HEIGHT: usize = 256;

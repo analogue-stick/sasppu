@@ -75,102 +75,34 @@ typedef enum {
   SASPPU_IC_InvalidBitdepth,
 } SASPPUImageCode;
 
-SASPPUImageCode SASPPU_copy_sprite(SpritePlane sprite_plane, size_t dst_x,
-                                   size_t dst_y, size_t width, size_t height,
-                                   size_t src_x, size_t src_y,
-                                   bool double_size);
-SASPPUImageCode SASPPU_copy_sprite_transparent(SpritePlane sprite_plane,
-                                               size_t dst_x, size_t dst_y,
-                                               size_t width, size_t height,
-                                               size_t src_x, size_t src_y,
-                                               bool double_size);
-SASPPUImageCode SASPPU_blit_sprite(SpritePlane sprite_plane, size_t x, size_t y,
-                                   size_t width, size_t height,
-                                   bool double_size, const uint16_t *data);
-SASPPUImageCode SASPPU_blit_sprite_transparent(SpritePlane sprite_plane,
-                                               size_t x, size_t y, size_t width,
-                                               size_t height, bool double_size,
-                                               const uint16_t *data);
-SASPPUImageCode SASPPU_paletted_sprite(SpritePlane sprite_plane, size_t x,
-                                       size_t y, size_t width, size_t height,
-                                       bool double_size, const uint8_t *data,
-                                       const uint16_t *const palette,
-                                       size_t bitdepth);
-SASPPUImageCode SASPPU_paletted_sprite_transparent(
-    SpritePlane sprite_plane, size_t x, size_t y, size_t width, size_t height,
-    bool double_size, const uint8_t *data, const uint16_t *const palette,
-    size_t bitdepth);
-SASPPUImageCode SASPPU_compressed_sprite(SpritePlane sprite_plane, size_t x,
-                                         size_t y, size_t width, size_t height,
-                                         bool double_size, const uint8_t *data,
-                                         const uint16_t *const palette,
-                                         size_t bitdepth);
-SASPPUImageCode SASPPU_compressed_sprite_transparent(
-    SpritePlane sprite_plane, size_t x, size_t y, size_t width, size_t height,
-    bool double_size, const uint8_t *data, const uint16_t *const palette,
-    size_t bitdepth);
-SASPPUImageCode SASPPU_fill_sprite(SpritePlane sprite_plane, size_t x, size_t y,
-                                   size_t width, size_t height,
-                                   uint16_t colour);
-SASPPUImageCode SASPPU_draw_text_sprite(SpritePlane sprite_plane, size_t x,
-                                        size_t y, uint16_t colour,
-                                        size_t line_width,
-                                        size_t newline_height, bool double_size,
-                                        const char *text);
-SASPPUImageCode
-SASPPU_draw_text_next_sprite(SpritePlane sprite_plane, size_t *x, size_t *y,
-                             uint16_t colour, size_t line_start,
-                             size_t line_width, size_t newline_height,
-                             bool double_size, const char **text);
-
-SASPPUImageCode SASPPU_copy_background(BackgroundPlane background_plane,
-                                       size_t dst_x, size_t dst_y, size_t width,
-                                       size_t height, size_t src_x,
-                                       size_t src_y, bool double_size);
-SASPPUImageCode SASPPU_copy_background_transparent(
-    BackgroundPlane background_plane, size_t dst_x, size_t dst_y, size_t width,
-    size_t height, size_t src_x, size_t src_y, bool double_size);
-SASPPUImageCode SASPPU_blit_background(BackgroundPlane background_plane,
-                                       size_t x, size_t y, size_t width,
-                                       size_t height, bool double_size,
-                                       const uint16_t *data);
-SASPPUImageCode
-SASPPU_blit_background_transparent(BackgroundPlane background_plane, size_t x,
-                                   size_t y, size_t width, size_t height,
-                                   bool double_size, const uint16_t *data);
-SASPPUImageCode SASPPU_paletted_background(BackgroundPlane background_plane,
-                                           size_t x, size_t y, size_t width,
-                                           size_t height, bool double_size,
-                                           const uint8_t *data,
-                                           const uint16_t *const palette,
-                                           size_t bitdepth);
-SASPPUImageCode SASPPU_paletted_background_transparent(
-    BackgroundPlane background_plane, size_t x, size_t y, size_t width,
-    size_t height, bool double_size, const uint8_t *data,
-    const uint16_t *const palette, size_t bitdepth);
-SASPPUImageCode SASPPU_compressed_background(BackgroundPlane background_plane,
-                                             size_t x, size_t y, size_t width,
-                                             size_t height, bool double_size,
-                                             const uint8_t *data,
-                                             const uint16_t *const palette,
-                                             size_t bitdepth);
-SASPPUImageCode SASPPU_compressed_background_transparent(
-    BackgroundPlane background_plane, size_t x, size_t y, size_t width,
-    size_t height, bool double_size, const uint8_t *data,
-    const uint16_t *const palette, size_t bitdepth);
-SASPPUImageCode SASPPU_fill_background(BackgroundPlane background_plane,
-                                       size_t x, size_t y, size_t width,
-                                       size_t height, uint16_t colour);
-SASPPUImageCode SASPPU_draw_text_background(BackgroundPlane background_plane,
-                                            size_t x, size_t y, uint16_t colour,
-                                            size_t line_width,
-                                            size_t newline_height,
-                                            bool double_size, const char *text);
-SASPPUImageCode
-SASPPU_draw_text_next_background(BackgroundPlane background_plane, size_t *x,
-                                 size_t *y, uint16_t colour, size_t line_start,
-                                 size_t line_width, size_t newline_height,
-                                 bool double_size, const char **text);
+SASPPUImageCode SASPPU_copy(GraphicsPlane *graphics_plane, size_t dst_x,
+                            size_t dst_y, size_t width, size_t height,
+                            size_t src_x, size_t src_y, bool double_size,
+                            bool transparent);
+SASPPUImageCode SASPPU_blit(GraphicsPlane *graphics_plane, size_t x, size_t y,
+                            size_t width, size_t height, bool double_size,
+                            const uint16_t *data, bool transparent);
+SASPPUImageCode SASPPU_paletted(GraphicsPlane *graphics_plane, size_t x,
+                                size_t y, size_t width, size_t height,
+                                bool double_size, const uint8_t *data,
+                                const uint16_t *const palette, size_t bitdepth,
+                                bool transparent);
+SASPPUImageCode SASPPU_compressed(GraphicsPlane *graphics_plane, size_t x,
+                                  size_t y, size_t width, size_t height,
+                                  bool double_size, const uint8_t *data,
+                                  const uint16_t *const palette,
+                                  size_t bitdepth, bool transparent);
+SASPPUImageCode SASPPU_fill(GraphicsPlane *graphics_plane, size_t x, size_t y,
+                            size_t width, size_t height, uint16_t colour);
+SASPPUImageCode SASPPU_draw_text(GraphicsPlane *graphics_plane, size_t x,
+                                 size_t y, uint16_t colour, size_t line_width,
+                                 size_t newline_height, bool double_size,
+                                 const char *text);
+SASPPUImageCode SASPPU_draw_text_next(GraphicsPlane *graphics_plane, size_t *x,
+                                      size_t *y, uint16_t colour,
+                                      size_t line_start, size_t line_width,
+                                      size_t newline_height, bool double_size,
+                                      const char **text);
 
 void SASPPU_get_text_size(size_t *width, size_t *height, size_t line_width,
                           size_t newline_height, bool double_size,

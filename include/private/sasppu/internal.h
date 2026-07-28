@@ -40,8 +40,7 @@
 #define ESP_LOGI
 #endif
 
-void SASPPU_assert_fail();
-
+extern uint16x8_t SASPPU_main_screen[240 / 8];
 extern uint16x8_t SASPPU_sub_screen[240 / 8];
 extern SpriteCache SASPPU_sprite_cache;
 extern mask16x8_t SASPPU_window_cache[(240 / 8) * 2];
@@ -49,8 +48,8 @@ extern mask16x8_t SASPPU_window_cache[(240 / 8) * 2];
 extern MainState SASPPU_main_state;
 extern CMathState SASPPU_cmath_state;
 extern BackgroundState SASPPU_background_state;
-extern BackgroundPlane SASPPU_background_plane;
-extern SpritePlane SASPPU_sprite_plane;
+extern GraphicsPlane SASPPU_background_plane;
+extern GraphicsPlane SASPPU_sprite_plane;
 extern BackgroundMap SASPPU_background_map;
 extern SpriteState SASPPU_sprite_state;
 
@@ -102,18 +101,13 @@ extern SpriteState SASPPU_sprite_state;
                           "st.qr q7, %[check], 0" : : [check] "r"(&check)));
 
 #if USE_INLINE_ASM
-typedef void (*HandleWindowType)(uint16x8_t *const scanline, const uint16_t x);
+typedef void (*HandleWindowType)(const uint16_t x);
 #else
-typedef void (*HandleWindowType)(uint16x8_t *const scanline, const uint16_t x,
-                                 const uint16x8_t col);
+typedef void (*HandleWindowType)(const uint16_t x, const uint16x8_t col);
 #endif
 
-typedef void (*HandleSpriteType)(uint16x8_t *const scanline, const int16_t y,
-                                 Sprite *const sprite);
-typedef void (*HandleCMathType)(uint16x8_t *const scanline);
-typedef void (*HandleScanlineType)(uint16x8_t *const scanline, const int16_t y);
-typedef void (*HandleBackgroundType)(uint16x8_t *const scanline,
-                                     const int16_t y);
+typedef void (*HandleSpriteType)(const int16_t y, Sprite *const sprite);
+typedef void (*HandleCMathType)();
 
 #define SCANLINE_END (240 - 8)
 #define VBROADCAST(val) {val, val, val, val, val, val, val, val}
@@ -134,12 +128,8 @@ extern const uint16_t CMATH_TWO_NINE;
 extern const uint16_t CMATH_TWO_TEN;
 
 extern const HandleSpriteType HANDLE_SPRITE_LOOKUP[16];
-extern const HandleScanlineType HANDLE_SCANLINE_LOOKUP[64];
 extern const HandleCMathType HANDLE_CMATH_LOOKUP[256];
 extern const HandleWindowType HANDLE_WINDOW_LOOKUP[256];
-
-void handle_bg0(uint16x8_t *const scanline, const int16_t y);
-void handle_bg1(uint16x8_t *const scanline, const int16_t y);
 
 #if USE_GCC_SIMD
 extern const uint16x8_t REVERSE_MASK;

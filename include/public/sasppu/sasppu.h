@@ -13,10 +13,11 @@
 #define SASPPU_SASPPU_H_
 
 #include "stdbool.h"
+#include "stddef.h"
 #include "stdint.h"
 
 #define SASPPU_VERSION_MAJOR 2
-#define SASPPU_VERSION_MINOR 0
+#define SASPPU_VERSION_MINOR 1
 #define SASPPU_VERSION_PATCH 0
 
 // #define SASPPU_VERSION
@@ -114,23 +115,30 @@ static const MainState DEFAULT_MAIN_STATE = {
 #define MAIN_CMATH_ENABLE (1 << 0)
 #define MAIN_BGCOL_WINDOW_ENABLE (1 << 1)
 
-#define BG_WIDTH_POWER (8)
-#define BG_HEIGHT_POWER (8)
-#define BG_WIDTH (1 << BG_WIDTH_POWER)
-#define BG_HEIGHT (1 << BG_HEIGHT_POWER)
+#define GRAPHICS_WIDTH_POWER_MAX (8)
+#define GRAPHICS_HEIGHT_POWER_MAX (9)
+#define GRAPHICS_WIDTH_POWER_MIN (3)
+#define GRAPHICS_HEIGHT_POWER_MIN (3)
+#define GRAPHICS_WIDTH_MAX (1 << GRAPHICS_WIDTH_POWER_MAX)
+#define GRAPHICS_HEIGHT_MAX (1 << GRAPHICS_HEIGHT_POWER_MAX)
+#define GRAPHICS_WIDTH_MIN (1 << GRAPHICS_WIDTH_POWER_MIN)
+#define GRAPHICS_HEIGHT_MIN (1 << GRAPHICS_HEIGHT_POWER_MIN)
 
-#define SPRITE_COUNT (256)
-#define SPRITE_CACHE (16)
+#define SPRITE_COUNT_POWER_MAX (8)
+#define SPRITE_COUNT_POWER_MIN (0)
+#define SPRITE_CACHE_POWER (4)
+#define SPRITE_COUNT_MAX (1 << SPRITE_COUNT_POWER_MAX)
+#define SPRITE_COUNT_MIN (1 << SPRITE_COUNT_POWER_MIN)
+#define SPRITE_CACHE (1 << SPRITE_CACHE_POWER)
 
-#define SPR_WIDTH_POWER (8)
-#define SPR_HEIGHT_POWER (8)
-#define SPR_WIDTH (1 << SPR_WIDTH_POWER)
-#define SPR_HEIGHT (1 << SPR_HEIGHT_POWER)
-
-#define MAP_WIDTH_POWER (6)
-#define MAP_HEIGHT_POWER (6)
-#define MAP_WIDTH (1 << MAP_WIDTH_POWER)
-#define MAP_HEIGHT (1 << MAP_HEIGHT_POWER)
+#define MAP_WIDTH_POWER_MAX (8)
+#define MAP_HEIGHT_POWER_MAX (8)
+#define MAP_WIDTH_POWER_MIN (0)
+#define MAP_HEIGHT_POWER_MIN (0)
+#define MAP_WIDTH_MAX (1 << MAP_WIDTH_POWER_MAX)
+#define MAP_HEIGHT_MAX (1 << MAP_HEIGHT_POWER_MAX)
+#define MAP_WIDTH_MIN (1 << MAP_WIDTH_POWER_MIN)
+#define MAP_HEIGHT_MIN (1 << MAP_HEIGHT_POWER_MIN)
 
 typedef uint16_t uint16x8_t __attribute__((vector_size(16)));
 typedef int16_t int16x8_t __attribute__((vector_size(16)));
@@ -138,23 +146,40 @@ typedef uint16_t mask16x8_t __attribute__((vector_size(16)));
 
 typedef Sprite *SpriteCache[SPRITE_CACHE];
 
-typedef uint16x8_t *BackgroundPlane; // [(BG_WIDTH / 8) * BG_HEIGHT];
-typedef uint16x8_t *SpritePlane;     // [SPR_WIDTH * SPR_HEIGHT / 8];
-typedef Sprite *SpriteState;         // [SPRITE_COUNT];
-typedef uint16_t *BackgroundMap;     // [MAP_WIDTH * MAP_HEIGHT];
+typedef struct {
+  size_t width;
+  size_t height;
+  uint16x8_t *dat; // [(BG_WIDTH / 8) * BG_HEIGHT];
+} GraphicsPlane;
 
-void SASPPU_alloc_background_plane(BackgroundPlane *plane);
-void SASPPU_alloc_sprite_plane(SpritePlane *plane);
+typedef struct {
+  size_t count;
+  Sprite *dat; // [SPRITE_COUNT];
+} SpriteState;
+
+typedef struct {
+  size_t width;
+  size_t height;
+  uint16_t *dat; // [MAP_WIDTH * MAP_HEIGHT];
+} BackgroundMap;
+
+static const GraphicsPlane DEFAULT_GRAPHICS_PLANE = {
+    .width = 0, .height = 0, .dat = NULL};
+
+static const SpriteState DEFAULT_SPRITE_STATE = {.count = 0, .dat = NULL};
+
+static const BackgroundMap DEFAULT_BACKGROUND_MAP = {
+    .width = 0, .height = 0, .dat = NULL};
+
+void SASPPU_alloc_graphics_plane(GraphicsPlane *plane);
 void SASPPU_alloc_sprite_state(SpriteState *state);
 void SASPPU_alloc_background_map(BackgroundMap *map);
 
-void SASPPU_calloc_background_plane(BackgroundPlane *plane);
-void SASPPU_calloc_sprite_plane(SpritePlane *plane);
+void SASPPU_calloc_graphics_plane(GraphicsPlane *plane);
 void SASPPU_calloc_sprite_state(SpriteState *state);
 void SASPPU_calloc_background_map(BackgroundMap *map);
 
-void SASPPU_free_background_plane(BackgroundPlane plane);
-void SASPPU_free_sprite_plane(SpritePlane plane);
+void SASPPU_free_graphics_plane(GraphicsPlane plane);
 void SASPPU_free_sprite_state(SpriteState state);
 void SASPPU_free_background_map(BackgroundMap map);
 
