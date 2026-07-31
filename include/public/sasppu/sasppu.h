@@ -20,6 +20,27 @@
 #define SASPPU_VERSION_MINOR 1
 #define SASPPU_VERSION_PATCH 0
 
+// Whether to edit internal structures to better interact with Micropython.
+#ifndef SASPPU_MPY_COMPAT
+#define SASPPU_MPY_COMPAT 0
+#endif
+
+#if SASPPU_MPY_COMPAT
+#define SASPPU_MPY_BASE void *_mpy_base_pointer;
+#define SASPPU_MPY_TUPLE_BASE SASPPU_MPY_BASE size_t len;
+#define SASPPU_MPY_LIST_BASE SASPPU_MPY_BASE size_t alloc;
+#define SASPPU_MPY_DEFAULT ._mpy_base_pointer = (void *)(0),
+#define SASPPU_MPY_TUPLE_DEFAULT SASPPU_MPY_DEFAULT.len = 2,
+#define SASPPU_MPY_LIST_DEFAULT SASPPU_MPY_DEFAULT.alloc = 0,
+#else
+#define SASPPU_MPY_BASE
+#define SASPPU_MPY_TUPLE_BASE
+#define SASPPU_MPY_LIST_BASE
+#define SASPPU_MPY_DEFAULT
+#define SASPPU_MPY_TUPLE_DEFAULT
+#define SASPPU_MPY_LIST_DEFAULT
+#endif
+
 // #define SASPPU_VERSION
 // "SASPPU_VERSION_MAJOR.SASPPU_VERSION_MINOR.SASPPU_VERSION_PATCH"
 
@@ -33,6 +54,7 @@
 #define WINDOW_ALL (0b1111)
 
 typedef struct {
+  SASPPU_MPY_BASE
   int16_t x;
   int16_t y;
   uint8_t width;
@@ -43,14 +65,9 @@ typedef struct {
   uint8_t flags;
 } Sprite;
 
-static const Sprite DEFAULT_SPRITE = {.x = 0,
-                                      .y = 0,
-                                      .width = 8,
-                                      .height = 8,
-                                      .graphics_x = 0,
-                                      .graphics_y = 0,
-                                      .windows = 0xFF,
-                                      .flags = 0};
+static const Sprite DEFAULT_SPRITE = {
+    SASPPU_MPY_DEFAULT.x = 0, .y = 0,          .width = 8,      .height = 8,
+    .graphics_x = 0,          .graphics_y = 0, .windows = 0xFF, .flags = 0};
 
 #define SPR_USER_TYPE (7)
 #define SPR_ENABLED (1 << 3)
@@ -60,6 +77,7 @@ static const Sprite DEFAULT_SPRITE = {.x = 0,
 #define SPR_DOUBLE (1 << 7)
 
 typedef struct {
+  SASPPU_MPY_BASE
   int16_t scroll_x;
   int16_t scroll_y;
   uint8_t windows;
@@ -67,16 +85,19 @@ typedef struct {
 } BackgroundState;
 
 static const BackgroundState DEFAULT_BACKGROUND_STATE = {
-    .scroll_x = 0, .scroll_y = 0, .windows = 0xFF, .flags = 0};
+    SASPPU_MPY_DEFAULT.scroll_x = 0, .scroll_y = 0, .windows = 0xFF,
+    .flags = 0};
 
 #define BG_C_MATH (1 << 0)
 
 typedef struct {
+  SASPPU_MPY_BASE
   uint16_t screen_fade;
   uint8_t flags;
 } CMathState;
 
-static const CMathState DEFAULT_CMATH_STATE = {.screen_fade = 0, .flags = 0};
+static const CMathState DEFAULT_CMATH_STATE = {
+    SASPPU_MPY_DEFAULT.screen_fade = 0, .flags = 0};
 
 #define CMATH_HALF_MAIN_SCREEN (1 << 0)
 #define CMATH_DOUBLE_MAIN_SCREEN (1 << 1)
@@ -88,6 +109,7 @@ static const CMathState DEFAULT_CMATH_STATE = {.screen_fade = 0, .flags = 0};
 #define CMATH_CMATH_ENABLE (1 << 7)
 
 typedef struct {
+  SASPPU_MPY_BASE
   uint16_t mainscreen_colour;
   uint16_t subscreen_colour;
 
@@ -102,7 +124,7 @@ typedef struct {
 } MainState;
 
 static const MainState DEFAULT_MAIN_STATE = {
-    .mainscreen_colour = 0,
+    SASPPU_MPY_DEFAULT.mainscreen_colour = 0,
     .subscreen_colour = 0,
     .window_1_left = 0,
     .window_1_right = 255,
@@ -147,29 +169,37 @@ typedef uint16_t mask16x8_t __attribute__((vector_size(16)));
 typedef Sprite *SpriteCache[SPRITE_CACHE];
 
 typedef struct {
+  SASPPU_MPY_BASE
   size_t width;
   size_t height;
   uint16x8_t *dat; // [(BG_WIDTH / 8) * BG_HEIGHT];
 } GraphicsPlane;
 
 typedef struct {
+  SASPPU_MPY_LIST_BASE
   size_t count;
-  Sprite *dat; // [SPRITE_COUNT];
+#if SASPPU_MPY_COMPAT
+  Sprite **dat;
+#else
+  Sprite *dat;
+#endif
 } SpriteState;
 
 typedef struct {
+  SASPPU_MPY_BASE
   size_t width;
   size_t height;
   uint16_t *dat; // [MAP_WIDTH * MAP_HEIGHT];
 } BackgroundMap;
 
 static const GraphicsPlane DEFAULT_GRAPHICS_PLANE = {
-    .width = 0, .height = 0, .dat = NULL};
+    SASPPU_MPY_DEFAULT.width = 0, .height = 0, .dat = NULL};
 
-static const SpriteState DEFAULT_SPRITE_STATE = {.count = 0, .dat = NULL};
+static const SpriteState DEFAULT_SPRITE_STATE = {
+    SASPPU_MPY_LIST_DEFAULT.count = 0, .dat = NULL};
 
 static const BackgroundMap DEFAULT_BACKGROUND_MAP = {
-    .width = 0, .height = 0, .dat = NULL};
+    SASPPU_MPY_DEFAULT.width = 0, .height = 0, .dat = NULL};
 
 void SASPPU_alloc_graphics_plane(GraphicsPlane *plane);
 void SASPPU_alloc_sprite_state(SpriteState *state);
@@ -186,7 +216,7 @@ void SASPPU_free_background_map(BackgroundMap map);
 #define HDMA_LEN SCREEN_HEIGHT
 
 #if __STDC_VERSION__ >= 202000
-typedef enum : uint16_t
+typedef enum : uint32_t
 #else
 typedef enum
 #endif
@@ -209,14 +239,23 @@ typedef enum
 } HDMACommand;
 
 typedef struct {
+  SASPPU_MPY_BASE
   HDMACommand command;
   uint16_t value;
 } HDMAEntry;
 
-typedef HDMAEntry HDMATable[HDMA_LEN];
+typedef struct {
+  SASPPU_MPY_LIST_BASE
+#if SASPPU_MPY_COMPAT
+  size_t count;
+  HDMAEntry *buf[HDMA_LEN];
+#else
+  HDMAEntry buf[HDMA_LEN];
+#endif
+} HDMATable;
 
 #if __STDC_VERSION__ >= 202000
-typedef enum : uint16_t
+typedef enum : uint32_t
 #else
 typedef enum
 #endif
@@ -234,15 +273,22 @@ typedef enum
   CMD_DRAW_BACKGROUND,
   CMD_DRAW_SPRITES,
   CMD_END_FRAME,
+  CMD_LAST,
 } BufferCommand;
 
 typedef struct {
+  SASPPU_MPY_BASE
   BufferCommand command;
   void *data;
 } BufferEntry;
 
 typedef struct {
+  SASPPU_MPY_LIST_BASE
+#if SASPPU_MPY_COMPAT
+  BufferEntry **buf;
+#else
   BufferEntry *buf;
+#endif
 } CommandBuffer;
 
 extern bool SASPPU_forced_blank;

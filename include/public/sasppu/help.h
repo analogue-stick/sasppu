@@ -81,17 +81,18 @@ SASPPUImageCode SASPPU_copy(GraphicsPlane *graphics_plane, size_t dst_x,
                             bool transparent);
 SASPPUImageCode SASPPU_blit(GraphicsPlane *graphics_plane, size_t x, size_t y,
                             size_t width, size_t height, bool double_size,
-                            const uint16_t *data, bool transparent);
+                            bool transparent, const uint16_t *data);
 SASPPUImageCode SASPPU_paletted(GraphicsPlane *graphics_plane, size_t x,
                                 size_t y, size_t width, size_t height,
-                                bool double_size, const uint8_t *data,
-                                const uint16_t *const palette, size_t bitdepth,
-                                bool transparent);
+                                bool double_size, bool transparent,
+                                const uint8_t *data,
+                                const uint16_t *const palette, size_t bitdepth);
 SASPPUImageCode SASPPU_compressed(GraphicsPlane *graphics_plane, size_t x,
                                   size_t y, size_t width, size_t height,
-                                  bool double_size, const uint8_t *data,
+                                  bool double_size, bool transparent,
+                                  const uint8_t *data,
                                   const uint16_t *const palette,
-                                  size_t bitdepth, bool transparent);
+                                  size_t bitdepth);
 SASPPUImageCode SASPPU_fill(GraphicsPlane *graphics_plane, size_t x, size_t y,
                             size_t width, size_t height, uint16_t colour);
 SASPPUImageCode SASPPU_draw_text(GraphicsPlane *graphics_plane, size_t x,

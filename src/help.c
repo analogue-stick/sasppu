@@ -61,8 +61,8 @@
 
 inline SASPPUImageCode SASPPU_blit(GraphicsPlane *graphics_plane, size_t x,
                                    size_t y, size_t width, size_t height,
-                                   bool double_size, const uint16_t *data,
-                                   bool transparent) {
+                                   bool double_size, bool transparent,
+                                   const uint16_t *data) {
   CHECK_BOUNDS(x, y);
   for (size_t yi = 0; yi < height; yi++) {
     for (size_t xi = 0; xi < width; xi++) {
@@ -92,9 +92,10 @@ inline SASPPUImageCode SASPPU_copy(GraphicsPlane *graphics_plane, size_t dst_x,
 
 inline SASPPUImageCode SASPPU_paletted(GraphicsPlane *graphics_plane, size_t x,
                                        size_t y, size_t width, size_t height,
-                                       bool double_size, const uint8_t *data,
+                                       bool double_size, bool transparent,
+                                       const uint8_t *data,
                                        const uint16_t *const palette,
-                                       size_t bitdepth, bool transparent) {
+                                       size_t bitdepth) {
   CHECK_BOUNDS(x, y);
   if (bitdepth >= 4) {
     return SASPPU_IC_InvalidBitdepth;
@@ -122,9 +123,9 @@ inline SASPPUImageCode SASPPU_paletted(GraphicsPlane *graphics_plane, size_t x,
 inline SASPPUImageCode SASPPU_compressed(GraphicsPlane *graphics_plane,
                                          size_t x, size_t y, size_t width,
                                          size_t height, bool double_size,
-                                         const uint8_t *data,
+                                         bool transparent, const uint8_t *data,
                                          const uint16_t *const palette,
-                                         size_t bitdepth, bool transparent) {
+                                         size_t bitdepth) {
   CHECK_BOUNDS(x, y);
   if (bitdepth >= 4) {
     return SASPPU_IC_InvalidBitdepth;
@@ -216,13 +217,13 @@ SASPPU_draw_text_next(GraphicsPlane *graphics_plane, size_t *x, size_t *y,
   CharacterData data = CHARACTER_DATA[next_char - 0x20];
   const uint8_t *glyph_start = SASPPU_font + data.offset;
   res = SASPPU_paletted(graphics_plane, (*x) + 1, (*y) + 1, data.width,
-                        data.height - 2, double_size, glyph_start, bg_palette,
-                        0, true);
+                        data.height - 2, double_size, true, glyph_start,
+                        bg_palette, 0);
   if (res != SASPPU_IC_Success) {
     return res;
   }
   res = SASPPU_paletted(graphics_plane, *x, *y, data.width, data.height - 2,
-                        double_size, glyph_start, fg_palette, 0, true);
+                        double_size, true, glyph_start, fg_palette, 0);
   if (res != SASPPU_IC_Success) {
     return res;
   }

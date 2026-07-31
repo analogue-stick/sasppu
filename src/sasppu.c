@@ -82,8 +82,13 @@ void SASPPU_alloc_graphics_plane(GraphicsPlane *plane) {
 void SASPPU_alloc_sprite_state(SpriteState *state) {
   assert(state->count >= SPRITE_COUNT_MIN);
   assert(state->count <= SPRITE_COUNT_MAX);
+#if SASPPU_MPY_COMPAT
+  state->dat = (Sprite **)(aligned_alloc(alignof(Sprite *),
+                                         state->count * sizeof(Sprite *)));
+#else
   state->dat =
       (Sprite *)(aligned_alloc(alignof(Sprite), state->count * sizeof(Sprite)));
+#endif
 }
 void SASPPU_alloc_background_map(BackgroundMap *map) {
   assert(__builtin_popcount(map->width) == 1);
@@ -106,7 +111,11 @@ void SASPPU_calloc_graphics_plane(GraphicsPlane *plane) {
 void SASPPU_calloc_sprite_state(SpriteState *state) {
   SASPPU_alloc_sprite_state(state);
   if (state->dat) {
+#if SASPPU_MPY_COMPAT
+    memset(state->dat, 0, state->count * sizeof(Sprite *));
+#else
     memset(state->dat, 0, state->count * sizeof(Sprite));
+#endif
   }
 }
 void SASPPU_calloc_background_map(BackgroundMap *map) {
@@ -474,7 +483,11 @@ static void command_end_frame() {
 }
 
 static void command_apply_hdma(HDMATable *const table, uint8_t y) {
+#if SASPPU_MPY_COMPAT
+  HDMAEntry *entry = (*table)[y];
+#else
   HDMAEntry *entry = &(*table)[y];
+#endif
 
   switch (entry->command) {
   case HDMA_NOOP:
@@ -530,7 +543,11 @@ static inline void handle_sprite_cache(uint8_t y, uint8_t user_type) {
   if (SASPPU_sprite_state.dat) {
     size_t i = 0;
     do {
+#if SASPPU_MPY_COMPAT
+      Sprite *spr = SASPPU_sprite_state.dat[i];
+#else
       Sprite *spr = &SASPPU_sprite_state.dat[i];
+#endif
       uint8_t flags = spr->flags;
       uint8_t windows = spr->windows;
       int16_t iy = (int16_t)y;
@@ -640,9 +657,16 @@ void SASPPU_render(uint16x8_t *fb, uint8_t section,
   SASPPU_sprite_state = DEFAULT_SPRITE_STATE;
 
   do {
+#if SASPPU_MPY_COMPAT
+    BufferEntry **entry_array = command_buffer->buf;
+#else
     BufferEntry *entry = command_buffer->buf;
+#endif
     bool running = true;
     while (running) {
+#if SASPPU_MPY_COMPAT
+      BufferEntry *entry = *entry_array;
+#endif
       switch (entry->command) {
       case CMD_NOOP: {
       } break;
@@ -687,7 +711,11 @@ void SASPPU_render(uint16x8_t *fb, uint8_t section,
         command_draw_background(y);
       } break;
       case CMD_DRAW_SPRITES: {
+#if SASPPU_MPY_COMPAT
+        handle_sprite_cache(y, (uint8_t)(((uint32_t)(entry->data)) >> 1));
+#else
         handle_sprite_cache(y, (uint8_t)(uint32_t)(entry->data));
+#endif
         command_draw_sprites(y);
       } break;
       case CMD_END_FRAME: {
@@ -718,7 +746,11 @@ void SASPPU_render(uint16x8_t *fb, uint8_t section,
         } while (maincol >= SASPPU_main_screen);
       }
 
+#if SASPPU_MPY_COMPAT
+      entry_array++;
+#else
       entry++;
+#endif
     }
   } while ((++y) < (60 * (section + 1)));
 }
