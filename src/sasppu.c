@@ -484,9 +484,9 @@ static void command_end_frame() {
 
 static void command_apply_hdma(HDMATable *const table, uint8_t y) {
 #if SASPPU_MPY_COMPAT
-  HDMAEntry *entry = (*table)[y];
+  HDMAEntry *entry = (table->buf)[y];
 #else
-  HDMAEntry *entry = &(*table)[y];
+  HDMAEntry *entry = &(table->buf)[y];
 #endif
 
   switch (entry->command) {
