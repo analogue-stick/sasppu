@@ -659,12 +659,16 @@ void SASPPU_render(uint16x8_t *fb, uint8_t section,
   do {
 #if SASPPU_MPY_COMPAT
     BufferEntry **entry_array = command_buffer->buf;
+    size_t index = 0;
 #else
     BufferEntry *entry = command_buffer->buf;
 #endif
     bool running = true;
     while (running) {
 #if SASPPU_MPY_COMPAT
+      if (index == command_buffer->count) {
+        break;
+      }
       BufferEntry *entry = *entry_array;
 #endif
       switch (entry->command) {
@@ -727,30 +731,30 @@ void SASPPU_render(uint16x8_t *fb, uint8_t section,
       } break;
       }
 
-      // Copy SASPPU_main_screen to fb
-      {
-        uint16x8_t *scanline = fb + ((y + 1) * 240 / 8) - 1;
-        uint16x8_t *maincol = SASPPU_main_screen + (240 / 8) - 1;
-        do {
-#if USE_INLINE_ASM
-          asm volatile inline(
-              "                                   \n\t \
-              ee.vld.128.ip q0, %[maincol], -16   \n\t \
-              ee.vst.128.ip q0, %[scanline], -16  \n\t \
-              "
-              : [scanline] "+r"(scanline), [maincol] "+r"(maincol)
-              :);
-#else
-          *(scanline--) = *(maincol--);
-#endif
-        } while (maincol >= SASPPU_main_screen);
-      }
-
 #if SASPPU_MPY_COMPAT
       entry_array++;
+      index++;
 #else
       entry++;
 #endif
+    }
+
+    // Copy SASPPU_main_screen to fb
+    {
+      uint16x8_t *scanline = fb + ((y + 1) * 240 / 8) - 1;
+      uint16x8_t *maincol = SASPPU_main_screen + (240 / 8) - 1;
+      do {
+#if USE_INLINE_ASM
+        asm volatile inline("                                   \n\t \
+              ee.vld.128.ip q0, %[maincol], -16   \n\t \
+              ee.vst.128.ip q0, %[scanline], -16  \n\t \
+              "
+                            : [scanline] "+r"(scanline), [maincol] "+r"(maincol)
+                            :);
+#else
+        *(scanline--) = *(maincol--);
+#endif
+      } while (maincol >= SASPPU_main_screen);
     }
   } while ((++y) < (60 * (section + 1)));
 }

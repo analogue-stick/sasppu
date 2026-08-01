@@ -285,6 +285,7 @@ typedef struct {
 typedef struct {
   SASPPU_MPY_LIST_BASE
 #if SASPPU_MPY_COMPAT
+  size_t count;
   BufferEntry **buf;
 #else
   BufferEntry *buf;
