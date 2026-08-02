@@ -1,0 +1,7 @@
+menu "SASPPU Config"
+    config SASPPU_MPY_COMPAT
+        bool "SASPPU Micropython Mode"
+        default n
+        help
+            Enable the Micropython version of structures. Required for sasppu-mpy.
+endmenu

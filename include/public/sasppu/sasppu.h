@@ -16,13 +16,23 @@
 #include "stddef.h"
 #include "stdint.h"
 
+#ifdef SIMULATOR
+#define CONFIG_SASPPU_MPY_COMPAT 1
+#else
+#include "sdkconfig.h"
+#endif
+
 #define SASPPU_VERSION_MAJOR 2
-#define SASPPU_VERSION_MINOR 1
+#define SASPPU_VERSION_MINOR 2
 #define SASPPU_VERSION_PATCH 0
 
 // Whether to edit internal structures to better interact with Micropython.
 #ifndef SASPPU_MPY_COMPAT
-#define SASPPU_MPY_COMPAT 0
+#ifdef CONFIG_SASPPU_MPY_COMPAT
+#define SASPPU_MPY_COMPAT CONFIG_SASPPU_MPY_COMPAT
+#else
+#error "SASPPU_MPY_COMPAT is not defined"
+#endif
 #endif
 
 #if SASPPU_MPY_COMPAT
